@@ -4,6 +4,8 @@ import { LoginRoute } from '@/routes/auth/login';
 import { SignupRoute } from '@/routes/auth/signup';
 import { DashboardRoute } from '@/routes/dashboard';
 import { LandingRoute } from '@/routes/landing';
+import { ReservarRoute } from '@/routes/reservar';
+import { SaudeRoute } from '@/routes/saude';
 
 // Force the api client to register its interceptors at app boot.
 import '@/api/client';
@@ -27,6 +29,8 @@ export default function App() {
           <Route path="/login" element={<LoginRoute />} />
           <Route path="/cadastro" element={<SignupRoute />} />
           <Route path="/dashboard" element={<DashboardRoute />} />
+          <Route path="/reservar" element={<ReservarRoute />} />
+          <Route path="/saude" element={<SaudeRoute />} />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

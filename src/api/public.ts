@@ -100,3 +100,53 @@ export function usePackOffers(unitId: string | undefined) {
     staleTime: STALE_5_MIN,
   });
 }
+
+export interface PublicBike {
+  id: string;
+  label: string;
+  positionX: number | null;
+  positionY: number | null;
+  status: 'OPERATIONAL' | 'MAINTENANCE' | 'OUT_OF_SERVICE';
+}
+
+export interface SeatMap {
+  slot: PublicClassSlot;
+  bikes: PublicBike[];
+  occupiedBikeIds: string[];
+  freeSpots: number;
+}
+
+/// Single-call payload for the bike-picker UI: slot details + every
+/// operational bike at the unit + which bike IDs are taken right now.
+/// Refetched every 30s so the seat map stays warm while the user picks.
+export function useSeatMap(slotId: string | undefined) {
+  return useQuery({
+    queryKey: ['seat-map', slotId],
+    enabled: !!slotId,
+    queryFn: () =>
+      api
+        .get<SeatMap>(`/class-slots/${slotId}/seat-map`)
+        .then((r) => r.data),
+    staleTime: 15_000,
+    refetchInterval: 30_000,
+  });
+}
+
+/// 7-day class slot listing for the reservar flow's day picker.
+export function useClassSlotsRange(
+  unitId: string | undefined,
+  fromIso: string | undefined,
+  toIso: string | undefined,
+) {
+  return useQuery({
+    queryKey: ['class-slots-range', unitId, fromIso, toIso],
+    enabled: !!unitId && !!fromIso && !!toIso,
+    queryFn: () =>
+      api
+        .get<PublicClassSlot[]>('/class-slots', {
+          params: { unitId, from: fromIso, to: toIso, status: 'SCHEDULED' },
+        })
+        .then((r) => r.data),
+    staleTime: 60_000,
+  });
+}

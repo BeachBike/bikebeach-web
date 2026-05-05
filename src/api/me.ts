@@ -147,3 +147,50 @@ export function useCancelReservation() {
     },
   });
 }
+
+export interface CreateReservationPayload {
+  classSlotId: string;
+  bikeId: string;
+}
+
+/// Reserve a specific bike on a class slot. The backend enforces capacity,
+/// the 8h cancel window, the health gate and credit-pack consumption inside
+/// a transaction. Concurrency on `(slotId, bikeId)` returns a 409.
+export function useCreateReservation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateReservationPayload) =>
+      api.post<Reservation>('/reservations', payload).then((r) => r.data),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['reservations', 'me'] });
+      qc.invalidateQueries({ queryKey: ['credit-packs', 'me'] });
+      qc.invalidateQueries({ queryKey: ['seat-map', data.classSlotId] });
+    },
+  });
+}
+
+export interface JoinWaitlistResult {
+  id: string;
+  classSlotId: string;
+  userId: string;
+  joinedAt: string;
+  promotedAt: string | null;
+  removedAt: string | null;
+  position: number;
+}
+
+/// Join the FIFO waitlist for a full class slot. Returns the entry + the
+/// user's 1-indexed position. Auto-promotion happens server-side when a
+/// seat opens.
+export function useJoinWaitlist() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (slotId: string) =>
+      api
+        .post<JoinWaitlistResult>(`/class-slots/${slotId}/waitlist`)
+        .then((r) => r.data),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['seat-map', data.classSlotId] });
+    },
+  });
+}
