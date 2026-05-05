@@ -1,0 +1,114 @@
+/// pt-BR helpers for the customer-facing UI. Everything that turns raw API
+/// values into display strings lives here so screens stay declarative.
+
+const WEEKDAY_PT: Record<number, string> = {
+  0: 'dom',
+  1: 'seg',
+  2: 'ter',
+  3: 'qua',
+  4: 'qui',
+  5: 'sex',
+  6: 'sáb',
+};
+
+export function formatGreeting(hour: number = new Date().getHours()): string {
+  if (hour < 12) return 'bom dia';
+  if (hour < 18) return 'boa tarde';
+  return 'boa noite';
+}
+
+export function firstName(full: string | undefined | null): string {
+  if (!full) return '';
+  return full.trim().split(/\s+/)[0]!.toLowerCase();
+}
+
+export function formatHourMinute(iso: string): string {
+  return new Date(iso).toLocaleTimeString('pt-BR', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+}
+
+export function formatDayMonth(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+  });
+}
+
+export function formatFullDate(iso: string): string {
+  return new Date(iso).toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  });
+}
+
+/// "hoje" / "amanhã" / "qua" — relative-ish day label.
+export function relativeDayLabel(iso: string): string {
+  const d = new Date(iso);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const that = new Date(d);
+  that.setHours(0, 0, 0, 0);
+  const diffDays = Math.round(
+    (that.getTime() - today.getTime()) / 86_400_000,
+  );
+  if (diffDays === 0) return 'hoje';
+  if (diffDays === 1) return 'amanhã';
+  if (diffDays >= -1 && diffDays <= 6) return WEEKDAY_PT[d.getDay()] ?? '';
+  return WEEKDAY_PT[d.getDay()] ?? '';
+}
+
+export function intensityLabel(intensity: number | null | undefined): string {
+  if (!intensity) return 'média';
+  if (intensity <= 2) return 'leve';
+  if (intensity === 3) return 'média';
+  return 'forte';
+}
+
+export function formatCents(cents: number): string {
+  return (cents / 100).toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  });
+}
+
+export function paymentMethodLabel(
+  method: 'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD',
+): string {
+  switch (method) {
+    case 'PIX':
+      return 'pix';
+    case 'CREDIT_CARD':
+      return 'crédito';
+    case 'DEBIT_CARD':
+      return 'débito';
+  }
+}
+
+/// Initials like "MV" for "Marina Vasques". Uppercase, max 2 chars.
+export function initials(name: string | undefined | null): string {
+  if (!name) return '··';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return '··';
+  if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
+  return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+}
+
+/// Whole-day count from now → ISO. Negative when past.
+export function daysUntil(iso: string): number {
+  const t = new Date(iso).getTime();
+  return Math.ceil((t - Date.now()) / 86_400_000);
+}
+
+/// HH:MM:SS countdown to a future ISO; clamped to 00:00:00 once elapsed.
+export function formatCountdown(targetIso: string, now: number = Date.now()) {
+  const diff = Math.max(0, new Date(targetIso).getTime() - now);
+  const h = Math.floor(diff / 3_600_000);
+  const m = Math.floor((diff % 3_600_000) / 60_000);
+  const s = Math.floor((diff % 60_000) / 1_000);
+  return [h, m, s]
+    .map((n) => String(n).padStart(2, '0'))
+    .join(':');
+}
