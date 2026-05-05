@@ -1,11 +1,15 @@
 import axios, { AxiosError, type InternalAxiosRequestConfig } from 'axios';
 import { useAuthStore } from '@/stores/auth';
 
-/// All HTTP traffic goes through this client. Vite dev server proxies `/api`
-/// to the NestJS backend on :3000 (see vite.config.ts). In production the
-/// reverse proxy / CDN will need the same prefix wiring.
+/// Resolve the backend base URL.
+/// - Dev (no env): `/api` so Vite's proxy hits the local NestJS on :3000.
+/// - Prod (Vercel): set `VITE_API_BASE_URL=https://bikebeach-api-production.up.railway.app`
+///   in the Vercel project; Vite inlines it at build time.
+const RAW_BASE = import.meta.env.VITE_API_BASE_URL?.trim();
+const BASE_URL = RAW_BASE && RAW_BASE.length > 0 ? RAW_BASE : '/api';
+
 export const api = axios.create({
-  baseURL: '/api',
+  baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
 
@@ -45,8 +49,11 @@ api.interceptors.response.use(
 
     try {
       refreshPromise ??= (async () => {
+        // Use the same base URL as the main client — refresh has to hit the
+        // backend directly (we can't recurse through `api` since that would
+        // loop on its own 401 interceptor).
         const r = await axios.post<{ accessToken: string; refreshToken: string }>(
-          '/api/auth/refresh',
+          `${BASE_URL}/auth/refresh`,
           { refreshToken },
         );
         useAuthStore
