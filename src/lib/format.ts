@@ -17,9 +17,15 @@ export function formatGreeting(hour: number = new Date().getHours()): string {
   return 'boa noite';
 }
 
+/// Returns the first name in Title Case (first letter upper, rest lower).
+/// E.g. `"LUCAS PEREIRA"` → `"Lucas"`, `"maria de oliveira"` → `"Maria"`.
+/// Centralizes the rule the user expects: instructor labels never come out
+/// as `"sunset com lucas"` again.
 export function firstName(full: string | undefined | null): string {
   if (!full) return '';
-  return full.trim().split(/\s+/)[0]!.toLowerCase();
+  const raw = full.trim().split(/\s+/)[0] ?? '';
+  if (!raw) return '';
+  return raw[0]!.toUpperCase() + raw.slice(1).toLowerCase();
 }
 
 export function formatHourMinute(iso: string): string {
@@ -111,4 +117,21 @@ export function formatCountdown(targetIso: string, now: number = Date.now()) {
   return [h, m, s]
     .map((n) => String(n).padStart(2, '0'))
     .join(':');
+}
+
+/// Adaptive countdown for the professor dashboard: when the gap is wider
+/// than 24h we show `Xd Yh` (no need for second-level precision). Below
+/// 24h we drop into HH:MM:SS so the page acts like a real countdown clock
+/// the closer the class gets.
+export function formatCountdownSmart(
+  targetIso: string,
+  now: number = Date.now(),
+) {
+  const diff = Math.max(0, new Date(targetIso).getTime() - now);
+  if (diff >= 86_400_000) {
+    const days = Math.floor(diff / 86_400_000);
+    const hours = Math.floor((diff % 86_400_000) / 3_600_000);
+    return `${days}d ${String(hours).padStart(2, '0')}h`;
+  }
+  return formatCountdown(targetIso, now);
 }

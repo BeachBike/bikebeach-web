@@ -31,7 +31,13 @@ export function LoginRoute() {
     mutationFn: authApi.login,
     onSuccess: (data) => {
       setSession(data.accessToken, data.refreshToken, data.user);
-      navigate('/dashboard', { replace: true });
+      const home =
+        data.user.role === 'ADMIN'
+          ? '/admin'
+          : data.user.role === 'INSTRUCTOR'
+            ? '/professor'
+            : '/dashboard';
+      navigate(home, { replace: true });
     },
     onError: () => {
       setErrors((e) => ({

@@ -1,7 +1,17 @@
+import { useMemo, useState } from 'react';
+import type { FriendAttending } from '@/api/friends';
 import type { PublicClassSlot } from '@/api/public';
-import { formatHourMinute, intensityLabel } from '@/lib/format';
+import {
+  FriendBubbleStack,
+  FriendsListModal,
+} from '@/components/common';
+import { firstName, formatHourMinute, intensityLabel } from '@/lib/format';
 
 const WEEKDAY_PT = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
+
+/// Reservations close N minutes before class — kept in sync with the
+/// backend's `MIN_RESERVATION_LEAD_MINUTES`.
+const MIN_LEAD_MINUTES = 10;
 
 export interface DayOption {
   iso: string; // YYYY-MM-DD start of day in user's TZ
@@ -33,9 +43,17 @@ interface Props {
   isLoading: boolean;
   selectedSlotId: string | undefined;
   onSelectSlot: (slot: PublicClassSlot) => void;
-  /// IDs of slots the user already has an active reservation for, so we
-  /// can render a "já reservada" hint.
-  myReservedSlotIds: Set<string>;
+  /// Map of `classSlotId → { reservationId, canEditBike }` for the user's
+  /// active reservations. `canEditBike` is `true` when the class is still
+  /// further than the 8h cancellation window — drives the "trocar bike" CTA.
+  myReservedSlots: Map<
+    string,
+    { reservationId: string; canEditBike: boolean }
+  >;
+  /// G1 — `slotId → friend reservations on that slot`. Populated by the
+  /// /reservar route via `useFriendsAttendingBatch` once slots load. Keyed
+  /// by slotId; missing entries render no bubble.
+  friendsBySlot?: Record<string, FriendAttending[]>;
 }
 
 export function StepAula({
@@ -46,8 +64,18 @@ export function StepAula({
   isLoading,
   selectedSlotId,
   onSelectSlot,
-  myReservedSlotIds,
+  myReservedSlots,
+  friendsBySlot,
 }: Props) {
+  // Modal state for the "+N" overflow chip. Single shared state — only
+  // one slot's modal is ever open at a time.
+  const [openModalSlotId, setOpenModalSlotId] = useState<string | null>(
+    null,
+  );
+  const modalFriends = useMemo(() => {
+    if (!openModalSlotId) return [];
+    return friendsBySlot?.[openModalSlotId] ?? [];
+  }, [openModalSlotId, friendsBySlot]);
   const visible = (slots ?? []).filter((s) => {
     // The endpoint already filters to the same day; defensive trim.
     const d = new Date(s.startsAt);
@@ -119,17 +147,29 @@ export function StepAula({
             sem aulas nesse dia. tenta outro!
           </div>
         )}
-        {visible.map((s, idx) => (
-          <SlotRow
-            key={s.id}
-            slot={s}
-            selected={selectedSlotId === s.id}
-            already={myReservedSlotIds.has(s.id)}
-            index={idx}
-            onSelect={onSelectSlot}
-          />
-        ))}
+        {visible.map((s, idx) => {
+          const mine = myReservedSlots.get(s.id) ?? null;
+          const friends = friendsBySlot?.[s.id] ?? [];
+          return (
+            <SlotRow
+              key={s.id}
+              slot={s}
+              selected={selectedSlotId === s.id}
+              mine={mine}
+              friends={friends}
+              index={idx}
+              onSelect={onSelectSlot}
+              onOpenFriendsList={() => setOpenModalSlotId(s.id)}
+            />
+          );
+        })}
       </div>
+
+      <FriendsListModal
+        open={!!openModalSlotId}
+        onClose={() => setOpenModalSlotId(null)}
+        friends={modalFriends}
+      />
     </div>
   );
 }
@@ -137,33 +177,53 @@ export function StepAula({
 function SlotRow({
   slot,
   selected,
-  already,
+  mine,
+  friends,
   index,
   onSelect,
+  onOpenFriendsList,
 }: {
   slot: PublicClassSlot;
   selected: boolean;
-  already: boolean;
+  mine: { reservationId: string; canEditBike: boolean } | null;
+  friends: FriendAttending[];
   index: number;
   onSelect: (slot: PublicClassSlot) => void;
+  onOpenFriendsList: () => void;
 }) {
+  const startMs = new Date(slot.startsAt).getTime();
+  const now = Date.now();
+  const minutesToStart = (startMs - now) / 60_000;
+  const past = minutesToStart <= 0;
+  const tooSoon = !past && minutesToStart < MIN_LEAD_MINUTES;
+  const unavailable = past || tooSoon;
   const lotada = slot.freeSpots === 0;
   const baixa = slot.freeSpots > 0 && slot.freeSpots <= 5;
   const titulo = slot.classKind?.name?.toLowerCase() ?? slot.title ?? 'aula';
   const intens = intensityLabel(slot.classKind?.intensity);
+  const disabled = unavailable;
 
   return (
     <button
       type="button"
-      onClick={() => onSelect(slot)}
+      onClick={() => !disabled && onSelect(slot)}
+      disabled={disabled}
       className="grid items-center gap-4 overflow-hidden rounded-2xl border-[1.5px] px-5 py-5 text-left transition-all"
       style={{
         gridTemplateColumns: '96px 1fr auto auto',
-        borderColor: selected ? 'var(--color-ink)' : 'var(--color-sand)',
+        borderColor: selected
+          ? 'var(--color-ink)'
+          : unavailable
+            ? 'var(--color-sand)'
+            : 'var(--color-sand)',
         background: selected
           ? 'var(--color-cream-2)'
-          : 'var(--color-cream)',
+          : unavailable
+            ? '#EFE7D6'
+            : 'var(--color-cream)',
         animation: `fadeup .5s cubic-bezier(.2,.7,.2,1) ${idx2delay(index)}s both`,
+        opacity: unavailable ? 0.65 : 1,
+        cursor: disabled ? 'not-allowed' : 'pointer',
       }}
     >
       <div
@@ -171,7 +231,11 @@ function SlotRow({
         style={{
           fontSize: 32,
           lineHeight: 1,
-          color: selected ? 'var(--color-clay)' : 'var(--color-ink)',
+          color: selected
+            ? 'var(--color-clay)'
+            : unavailable
+              ? 'var(--color-ink-2)'
+              : 'var(--color-ink)',
         }}
       >
         {formatHourMinute(slot.startsAt)}
@@ -179,22 +243,54 @@ function SlotRow({
 
       <div>
         <div
-          className="display-tight"
-          style={{ fontSize: 24, lineHeight: 1.05 }}
+          className="display-tight flex flex-wrap items-center gap-3"
+          style={{
+            fontSize: 24,
+            lineHeight: 1.05,
+            color: unavailable ? 'var(--color-ink-2)' : 'inherit',
+          }}
         >
-          {titulo}
+          <span>{titulo}</span>
+          {friends.length > 0 && (
+            <span
+              className="inline-flex items-center"
+              onClick={(e) => {
+                // Don't bubble up to the SlotRow's onSelect — opening the
+                // overflow modal shouldn't accidentally pick the slot.
+                e.stopPropagation();
+              }}
+            >
+              <FriendBubbleStack
+                friends={friends.map((f) => ({
+                  userId: f.userId,
+                  name: f.name,
+                  isWaitlisted: f.isWaitlisted,
+                }))}
+                max={3}
+                size="sm"
+                ringColor={
+                  selected
+                    ? 'var(--color-cream-2)'
+                    : 'var(--color-cream)'
+                }
+                onOverflowClick={onOpenFriendsList}
+              />
+            </span>
+          )}
         </div>
         <div className="mt-1 flex flex-wrap gap-2.5 text-[13px] text-ink-2">
-          <span>com {slot.instructor.name.split(' ')[0]?.toLowerCase()}</span>
+          <span>com {firstName(slot.instructor.name)}</span>
           <span>·</span>
           <span>{slot.durationMinutes} min</span>
           <span>·</span>
           <span>pegada {intens}</span>
-          {already && (
+          {mine && (
             <>
               <span>·</span>
               <span className="font-semibold text-clay">
-                você já tem reserva
+                {mine.canEditBike
+                  ? 'você está reservada · trocar bike →'
+                  : 'você está reservada'}
               </span>
             </>
           )}
@@ -202,7 +298,26 @@ function SlotRow({
       </div>
 
       <div className="flex flex-col items-end gap-1">
-        {lotada ? (
+        {past ? (
+          <span
+            className="display-tight mono text-ink-2"
+            style={{ fontSize: 16 }}
+          >
+            já passou
+          </span>
+        ) : tooSoon ? (
+          <>
+            <span
+              className="display-tight mono text-ink-2"
+              style={{ fontSize: 18 }}
+            >
+              indisponível
+            </span>
+            <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-2">
+              fecha {MIN_LEAD_MINUTES}min antes
+            </span>
+          </>
+        ) : lotada ? (
           <>
             <span
               className="display-tight mono text-ink-2"
@@ -237,10 +352,14 @@ function SlotRow({
         style={{
           background: selected ? 'var(--color-clay)' : 'transparent',
           border: selected ? '0' : '1.5px solid var(--color-sand)',
-          color: selected ? 'var(--color-cream)' : 'var(--color-ink-2)',
+          color: selected
+            ? 'var(--color-cream)'
+            : unavailable
+              ? 'var(--color-ink-2)'
+              : 'var(--color-ink-2)',
         }}
       >
-        {selected ? '✓' : '→'}
+        {selected ? '✓' : unavailable ? '·' : '→'}
       </div>
     </button>
   );

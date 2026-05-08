@@ -1,16 +1,22 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link } from 'react-router';
+import { useLogout } from '@/hooks/useLogout';
 import { Logo } from '@/components/brand/logo';
 import { firstName, initials } from '@/lib/format';
-import { useAuthStore } from '@/stores/auth';
 
-export type DashboardTab = 'inicio' | 'aulas' | 'historico' | 'plano';
+export type DashboardTab =
+  | 'inicio'
+  | 'aulas'
+  | 'historico'
+  | 'plano'
+  | 'amigos';
 
 const TABS: ReadonlyArray<[DashboardTab, string]> = [
   ['inicio', 'início'],
   ['aulas', 'aulas'],
   ['historico', 'histórico'],
   ['plano', 'meu plano'],
+  ['amigos', 'amigos'],
 ];
 
 interface Props {
@@ -24,8 +30,7 @@ interface Props {
 export function TopBar({ tab, onTabChange, user }: Props) {
   const [open, setOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
-  const navigate = useNavigate();
-  const clear = useAuthStore((s) => s.clear);
+  const logout = useLogout();
 
   useEffect(() => {
     if (!open) return;
@@ -34,14 +39,16 @@ export function TopBar({ tab, onTabChange, user }: Props) {
         setOpen(false);
       }
     };
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
     document.addEventListener('mousedown', onDoc);
-    return () => document.removeEventListener('mousedown', onDoc);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onDoc);
+      document.removeEventListener('keydown', onKey);
+    };
   }, [open]);
-
-  const logout = () => {
-    clear();
-    navigate('/', { replace: true });
-  };
 
   return (
     <header className="sticky top-0 z-40 border-b border-sand bg-cream/90 backdrop-blur-md">
@@ -91,36 +98,32 @@ export function TopBar({ tab, onTabChange, user }: Props) {
               {initials(user.name)}
             </span>
           </button>
-          {open && (
-            <div className="absolute right-0 top-[52px] z-50 min-w-[200px] rounded-2xl border border-sand bg-cream p-2 shadow-[0_20px_50px_-20px_rgba(34,28,22,.3)]">
-              <div className="px-3 py-2 text-xs text-ink-2">{user.email}</div>
-              <a
-                href="#"
-                className="block rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-cream-2"
-              >
-                meu perfil
-              </a>
-              <a
-                href="#"
-                className="block rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-cream-2"
-              >
-                pagamentos
-              </a>
-              <a
-                href="#"
-                className="block rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-cream-2"
-              >
-                notificações
-              </a>
-              <button
-                type="button"
-                onClick={logout}
-                className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-clay-d hover:bg-cream-2"
-              >
-                sair
-              </button>
-            </div>
-          )}
+          {/* Always mounted so the enter/exit transition can run. The
+              `pointer-events-none` + `aria-hidden` keep it inert when closed. */}
+          <div
+            aria-hidden={!open}
+            className={`absolute right-0 top-[52px] z-50 min-w-[200px] origin-top-right rounded-2xl border border-sand bg-cream p-2 shadow-[0_20px_50px_-20px_rgba(34,28,22,.3)] transition-[transform,opacity] duration-150 ease-out ${
+              open
+                ? 'pointer-events-auto scale-100 opacity-100'
+                : 'pointer-events-none scale-95 opacity-0'
+            }`}
+          >
+            <div className="px-3 py-2 text-xs text-ink-2">{user.email}</div>
+            <Link
+              to="/perfil"
+              onClick={() => setOpen(false)}
+              className="block rounded-lg px-3 py-2.5 text-sm font-medium hover:bg-cream-2"
+            >
+              meu perfil
+            </Link>
+            <button
+              type="button"
+              onClick={logout}
+              className="block w-full rounded-lg px-3 py-2.5 text-left text-sm font-medium text-clay-d hover:bg-cream-2"
+            >
+              sair
+            </button>
+          </div>
         </div>
       </div>
 

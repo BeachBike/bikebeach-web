@@ -1,5 +1,7 @@
 import type { Reservation } from '@/api/me';
+import { Pagination, usePagination } from '@/components/common';
 import {
+  firstName,
   formatDayMonth,
   formatFullDate,
   intensityLabel,
@@ -17,13 +19,53 @@ interface DerivedStats {
   oldestDate: string | null;
 }
 
+/// Statuses that count as "real attendance" for the streak / count stats.
 const ATTENDED: ReadonlyArray<Reservation['status']> = [
   'CHECKED_IN',
   'COMPLETED',
 ];
 
+/// How long a CANCELLED_BY_STUDIO reservation lingers in histórico after
+/// the original startsAt before disappearing. Attended + NO_SHOW have no
+/// expiry — they stay forever as part of the user's record.
+const STUDIO_CANCEL_VISIBILITY_MS = 24 * 60 * 60 * 1000;
+
+/// Display labels for the studio cancellation enum. Mirrors the values the
+/// instructor / admin can pick in their cancel modals.
+const STUDIO_REASON_LABEL: Record<string, string> = {
+  CHUVA: 'chuva',
+  VENTO: 'vento',
+  RAIO: 'raio',
+  TECNICO: 'problema técnico',
+  MAR_ALTO: 'mar alto',
+  MANUTENCAO: 'manutenção',
+  SEGURANCA: 'segurança',
+  BAIXA_ADESAO: 'baixa adesão',
+  OUTRO: 'outro',
+};
+
 function isAttended(r: Reservation): boolean {
   return ATTENDED.includes(r.status);
+}
+
+/// Statuses surfaced in histórico:
+///   - CHECKED_IN / COMPLETED / NO_SHOW: forever — part of the user's record.
+///   - CANCELLED_BY_STUDIO: only for 24h after the original class time, then
+///     disappears entirely (the credit is already back, no value in keeping
+///     a "ghost" of a class that didn't happen).
+function isInHistory(r: Reservation, now: number): boolean {
+  if (
+    r.status === 'CHECKED_IN' ||
+    r.status === 'COMPLETED' ||
+    r.status === 'NO_SHOW'
+  ) {
+    return true;
+  }
+  if (r.status === 'CANCELLED_BY_STUDIO') {
+    const startMs = new Date(r.classSlot.startsAt).getTime();
+    return now - startMs < STUDIO_CANCEL_VISIBILITY_MS;
+  }
+  return false;
 }
 
 function deriveStats(reservations: Reservation[]): DerivedStats {
@@ -123,13 +165,20 @@ function deriveStats(reservations: Reservation[]): DerivedStats {
 
 export function HistoricoSection({ reservations }: Props) {
   const stats = deriveStats(reservations ?? []);
+  // List includes NO_SHOWs (ausência) and recent CANCELLED_BY_STUDIO so the
+  // user sees what happened. Stats still use only attended — ausência and
+  // cancelled don't count for "aulas no total" or streaks.
+  const now = Date.now();
   const past = (reservations ?? [])
-    .filter(isAttended)
+    .filter((r) => isInHistory(r, now))
     .sort(
       (a, b) =>
         new Date(b.classSlot.startsAt).getTime() -
         new Date(a.classSlot.startsAt).getTime(),
     );
+
+  const { page, setPage, totalPages, totalItems, pageItems, pageSize } =
+    usePagination(past, 6);
 
   const oldestLabel = stats.oldestDate
     ? new Date(stats.oldestDate).toLocaleDateString('pt-BR', {
@@ -155,7 +204,7 @@ export function HistoricoSection({ reservations }: Props) {
           tone="cream"
           label="instrutor mais frequente"
           value={
-            stats.topInstructor?.name?.split(' ')[0]?.toLowerCase() ?? '—'
+            stats.topInstructor ? firstName(stats.topInstructor.name) : '—'
           }
           sub={
             stats.topInstructor
@@ -189,11 +238,20 @@ export function HistoricoSection({ reservations }: Props) {
             sem aulas concluídas ainda. Sua jornada começa na primeira reserva.
           </div>
         ) : (
-          <div className="flex flex-col gap-2">
-            {past.map((r) => (
-              <HistoricoRow key={r.id} r={r} />
-            ))}
-          </div>
+          <>
+            <div className="flex flex-col gap-2">
+              {pageItems.map((r) => (
+                <HistoricoRow key={r.id} r={r} />
+              ))}
+            </div>
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              onPageChange={setPage}
+              totalItems={totalItems}
+              pageSize={pageSize}
+            />
+          </>
         )}
       </div>
     </>
@@ -203,19 +261,69 @@ export function HistoricoSection({ reservations }: Props) {
 function HistoricoRow({ r }: { r: Reservation }) {
   const slot = r.classSlot;
   const titulo = slot.classKind?.name?.toLowerCase() ?? slot.title ?? 'aula';
+  const isAbsent = r.status === 'NO_SHOW';
+  const isCancelledByStudio = r.status === 'CANCELLED_BY_STUDIO';
+  const isStrike = isAbsent || isCancelledByStudio;
+  const statusColor =
+    isAbsent || isCancelledByStudio
+      ? 'var(--color-clay-d)'
+      : 'var(--color-sea)';
+
+  const statusLabel = (() => {
+    if (r.status === 'COMPLETED') return 'concluída ✓';
+    if (r.status === 'CHECKED_IN') return 'check-in ✓';
+    if (isCancelledByStudio) {
+      const enumKey = slot.studioCancellationReason;
+      const enumLabel = enumKey ? STUDIO_REASON_LABEL[enumKey] : null;
+      if (enumLabel && enumLabel !== 'outro') {
+        return `cancelada · ${enumLabel}`;
+      }
+      const free = slot.cancellationDescription?.trim();
+      return free ? `cancelada · ${free}` : 'cancelada · estúdio';
+    }
+    // NO_SHOW: distinguish self-marked (has reason) from instructor-marked
+    // (reason starts with "ausência marcada pelo professor").
+    const reason = r.cancellationReason ?? '';
+    if (reason.toLowerCase().includes('professor')) {
+      return 'ausência · prof';
+    }
+    return 'ausência';
+  })();
+
+  const subline = (() => {
+    if (isAbsent && r.cancellationReason) return r.cancellationReason;
+    if (isCancelledByStudio && slot.cancellationDescription) {
+      return slot.cancellationDescription;
+    }
+    return null;
+  })();
+
   return (
-    <div className="grid grid-cols-1 items-center gap-3.5 rounded-2xl border border-sand bg-cream px-5 py-4 lg:grid-cols-[100px_1fr_140px_120px_100px]">
+    <div className="grid grid-cols-1 items-center gap-3.5 rounded-2xl border border-sand bg-cream px-5 py-4 lg:grid-cols-[100px_1fr_140px_120px_140px]">
       <span className="text-sm font-semibold text-ink-2">
         {formatFullDate(slot.startsAt)}
       </span>
-      <span
-        className="display-tight"
-        style={{ fontSize: 22, lineHeight: 1.1 }}
-      >
-        {titulo}
-      </span>
+      <div className="flex flex-col">
+        <span
+          className="display-tight"
+          style={{
+            fontSize: 22,
+            lineHeight: 1.1,
+            color: isStrike ? 'var(--color-ink-2)' : undefined,
+            textDecoration: isStrike ? 'line-through' : undefined,
+            textDecorationColor: 'var(--color-clay)',
+          }}
+        >
+          {titulo}
+        </span>
+        {subline && (
+          <span className="mt-0.5 text-[12px] italic text-ink-2">
+            “{subline}”
+          </span>
+        )}
+      </div>
       <span className="text-sm">
-        com {slot.instructor.name.split(' ')[0]?.toLowerCase()}
+        com {firstName(slot.instructor.name)}
       </span>
       <span className="text-[13px] text-ink-2">
         {slot.durationMinutes} min ·{' '}
@@ -223,9 +331,9 @@ function HistoricoRow({ r }: { r: Reservation }) {
       </span>
       <span
         className="text-xs font-bold uppercase tracking-wide"
-        style={{ color: 'var(--color-sea)' }}
+        style={{ color: statusColor }}
       >
-        {r.status === 'COMPLETED' ? 'concluída ✓' : 'check-in ✓'}
+        {statusLabel}
       </span>
     </div>
   );

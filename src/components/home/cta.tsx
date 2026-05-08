@@ -1,6 +1,8 @@
 import { Link } from 'react-router';
+import { useRoleHome } from '@/hooks/useRoleHome';
 
 export function CTA() {
+  const home = useRoleHome();
   return (
     <section
       id="reservar"
@@ -27,18 +29,29 @@ export function CTA() {
         </h2>
         <div className="mt-14 flex flex-wrap items-end justify-between gap-6">
           <div className="flex flex-wrap gap-3">
-            <Link
-              to="/cadastro"
-              className="rounded-full bg-ink px-8 py-5 text-base font-semibold text-cream transition-colors hover:bg-ink-2"
-            >
-              Criar minha conta →
-            </Link>
-            <Link
-              to="/login"
-              className="rounded-full border-[1.5px] border-cream px-8 py-5 text-base font-semibold transition-colors hover:bg-cream hover:text-ink"
-            >
-              Já tenho conta
-            </Link>
+            {home ? (
+              <Link
+                to={home}
+                className="rounded-full bg-ink px-8 py-5 text-base font-semibold text-cream transition-colors hover:bg-ink-2"
+              >
+                Abrir meu painel →
+              </Link>
+            ) : (
+              <>
+                <Link
+                  to="/cadastro"
+                  className="rounded-full bg-ink px-8 py-5 text-base font-semibold text-cream transition-colors hover:bg-ink-2"
+                >
+                  Criar minha conta →
+                </Link>
+                <Link
+                  to="/login"
+                  className="rounded-full border-[1.5px] border-cream px-8 py-5 text-base font-semibold transition-colors hover:bg-cream hover:text-ink"
+                >
+                  Já tenho conta
+                </Link>
+              </>
+            )}
           </div>
           <p className="max-w-[300px] text-right text-[17px] font-medium">
             Cancele até <b>8h antes</b> da aula.

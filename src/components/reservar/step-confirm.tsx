@@ -1,6 +1,7 @@
 import type { CreditPack } from '@/api/me';
 import type { PublicBike, SeatMap } from '@/api/public';
 import {
+  firstName,
   formatDayMonth,
   formatHourMinute,
   intensityLabel,
@@ -13,6 +14,10 @@ interface Props {
   isSubmitting: boolean;
   errorMessage: string | null;
   onConfirm: () => void;
+  /// Edit-bike mode: confirm button calls PATCH /bike instead of POST.
+  /// We hide the credit-cost block (no extra credit consumed) and swap
+  /// the CTA copy.
+  editMode?: boolean;
 }
 
 const RULES = [
@@ -30,12 +35,22 @@ export function StepConfirm({
   isSubmitting,
   errorMessage,
   onConfirm,
+  editMode,
 }: Props) {
   const slot = seatMap.slot;
   const titulo = slot.classKind?.name?.toLowerCase() ?? slot.title ?? 'aula';
   const intens = intensityLabel(slot.classKind?.intensity);
-  const profFirstName = slot.instructor.name.split(' ')[0]?.toLowerCase();
-  const rowLetter = bike.label.split('-')[0]!;
+  const profFirstName = firstName(slot.instructor.name);
+  // E3 — prefer the canonical row/col fields (B3) over parsing the label.
+  // Bikes seeded before B3 may have row/col null; fall back to the label
+  // and a regex-extracted row to keep the legacy seed visible.
+  const labelMatch = /^([A-Z])[-_]?(\d+)/.exec(bike.label.trim());
+  const rowLetter =
+    bike.row ?? labelMatch?.[1] ?? bike.label.split('-')[0] ?? '–';
+  const colNumber =
+    bike.col != null
+      ? String(bike.col).padStart(2, '0')
+      : (labelMatch?.[2] ?? bike.label);
 
   // Pick the credit pack that's about to be consumed (smallest expiry that
   // still has credits) to mirror the backend's selection logic.
@@ -57,6 +72,10 @@ export function StepConfirm({
       ? 'do plano mensal'
       : `do pacote ${target.totalCredits}`
     : 'sem pacote ativo';
+  const hasMultipleConsumablePacks = consumablePacks.length > 1;
+  const targetExpiry = target?.expiresAt
+    ? formatDayMonth(target.expiresAt)
+    : null;
 
   return (
     <div className="fadeup">
@@ -67,9 +86,17 @@ export function StepConfirm({
         className="display-tight mt-3"
         style={{ fontSize: 'clamp(40px,6vw,72px)', lineHeight: 0.92 }}
       >
-        confirma e
-        <br />
-        <span className="font-normal italic text-clay">vem pedalar.</span>
+        {editMode ? (
+          <>
+            confirma a<br />
+            <span className="font-normal italic text-clay">troca de bike.</span>
+          </>
+        ) : (
+          <>
+            confirma e<br />
+            <span className="font-normal italic text-clay">vem pedalar.</span>
+          </>
+        )}
       </h2>
 
       <div className="mt-8 grid grid-cols-1 gap-5 lg:grid-cols-2">
@@ -93,7 +120,7 @@ export function StepConfirm({
               [
                 ['dia', formatDayMonth(slot.startsAt)],
                 ['hora', formatHourMinute(slot.startsAt)],
-                ['bike', `${bike.label} · fila ${rowLetter}`],
+                ['bike', `${colNumber} · fila ${rowLetter}`],
               ] as const
             ).map(([k, v]) => (
               <div
@@ -106,27 +133,42 @@ export function StepConfirm({
             ))}
           </div>
 
-          <div className="mt-5 rounded-xl bg-cream-2 px-4 py-4">
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] text-ink-2">custo</span>
-              <span className="display-tight" style={{ fontSize: 22 }}>
-                1 crédito
-              </span>
+          {editMode ? (
+            <div className="mt-5 rounded-xl bg-cream-2 px-4 py-4 text-[13px] leading-snug text-ink-2">
+              <b className="text-ink">só a bike muda.</b> seu crédito segue
+              consumido na reserva original — nada extra é cobrado.
             </div>
-            <div className="mt-2 flex items-center justify-between">
-              <span className="text-[13px] text-ink-2">{targetLabel}</span>
-              <span className="text-[13px] font-semibold">
-                {target ? (
-                  <>
-                    <span className="text-clay">{remainingAfter}</span>{' '}
-                    restantes
-                  </>
-                ) : (
-                  <span className="text-clay-d">sem créditos</span>
-                )}
-              </span>
+          ) : (
+            <div className="mt-5 rounded-xl bg-cream-2 px-4 py-4">
+              <div className="flex items-center justify-between">
+                <span className="text-[13px] text-ink-2">custo</span>
+                <span className="display-tight" style={{ fontSize: 22 }}>
+                  1 crédito
+                </span>
+              </div>
+              <div className="mt-2 flex items-center justify-between">
+                <span className="text-[13px] text-ink-2">{targetLabel}</span>
+                <span className="text-[13px] font-semibold">
+                  {target ? (
+                    <>
+                      <span className="text-clay">{remainingAfter}</span>{' '}
+                      restantes
+                    </>
+                  ) : (
+                    <span className="text-clay-d">sem créditos</span>
+                  )}
+                </span>
+              </div>
+              {target && hasMultipleConsumablePacks && (
+                <div className="mt-3 rounded-lg bg-clay/10 px-3 py-2 text-[12px] leading-snug text-clay-d">
+                  Voce tem mais de um credito ativo. Esta reserva usa 1
+                  credito {targetLabel}
+                  {targetExpiry ? `, que vence em ${targetExpiry}` : ''}. A
+                  regra e sempre consumir o credito que vence primeiro.
+                </div>
+              )}
             </div>
-          </div>
+          )}
         </div>
 
         {/* Regras */}
@@ -166,19 +208,23 @@ export function StepConfirm({
 
       <div className="mt-8 flex flex-wrap items-center justify-end gap-3.5">
         <span className="mr-auto text-[13px] text-ink-2">
-          tudo certo? bora.
+          {editMode ? 'tudo certo? bora trocar.' : 'tudo certo? bora.'}
         </span>
         <button
           type="button"
           onClick={onConfirm}
-          disabled={isSubmitting || !target}
+          disabled={isSubmitting || (!editMode && !target)}
           className="inline-flex items-center gap-3 rounded-full bg-clay px-9 py-5 text-base font-semibold text-cream shadow-[0_24px_50px_-16px_rgba(216,93,52,0.55)] transition-transform duration-200 hover:-translate-y-1 disabled:translate-y-0 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {isSubmitting
-            ? 'reservando…'
-            : !target
-              ? 'sem créditos'
-              : 'confirmar reserva →'}
+            ? editMode
+              ? 'trocando…'
+              : 'reservando…'
+            : editMode
+              ? 'confirmar troca →'
+              : !target
+                ? 'sem créditos'
+                : 'confirmar reserva →'}
         </button>
       </div>
     </div>

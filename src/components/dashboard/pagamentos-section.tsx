@@ -1,4 +1,5 @@
 import type { Payment } from '@/api/me';
+import { Pagination, usePagination } from '@/components/common';
 import {
   formatCents,
   formatFullDate,
@@ -48,6 +49,10 @@ export function PagamentosSection({ payments }: Props) {
     (a, b) =>
       new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
   );
+  // Page size 5 by request — payments rows are shorter, more density would
+  // overrun the right column on the "meu plano" tab.
+  const { page, setPage, totalPages, totalItems, pageItems, pageSize } =
+    usePagination(list, 5);
 
   return (
     <div className="col-span-12 min-h-[340px] rounded-[22px] bg-cream-2 p-7 lg:col-span-7">
@@ -60,38 +65,47 @@ export function PagamentosSection({ payments }: Props) {
           aparece aqui.
         </div>
       ) : (
-        <div className="mt-5 flex flex-col gap-2">
-          {list.map((p) => (
-            <div
-              key={p.id}
-              className="flex items-center justify-between gap-4 rounded-xl bg-cream px-5 py-3.5"
-            >
-              <div className="flex-1">
-                <div
-                  className="display-tight"
-                  style={{ fontSize: 18 }}
-                >
-                  {paymentDescription(p)}
+        <>
+          <div className="mt-5 flex flex-col gap-2">
+            {pageItems.map((p) => (
+              <div
+                key={p.id}
+                className="flex items-center justify-between gap-4 rounded-xl bg-cream px-5 py-3.5"
+              >
+                <div className="flex-1">
+                  <div
+                    className="display-tight"
+                    style={{ fontSize: 18 }}
+                  >
+                    {paymentDescription(p)}
+                  </div>
+                  <div className="mt-0.5 text-xs text-ink-2">
+                    {formatFullDate(p.createdAt)} ·{' '}
+                    {paymentMethodLabel(p.method)}
+                  </div>
                 </div>
-                <div className="mt-0.5 text-xs text-ink-2">
-                  {formatFullDate(p.createdAt)} ·{' '}
-                  {paymentMethodLabel(p.method)}
+                <div className="flex flex-col items-end gap-0.5">
+                  <span className="text-[15px] font-semibold">
+                    {formatCents(p.amountCents)}
+                  </span>
+                  <span
+                    className="text-[10px] font-bold uppercase tracking-wide"
+                    style={{ color: statusColor(p.status) }}
+                  >
+                    {statusLabel(p.status)}
+                  </span>
                 </div>
               </div>
-              <div className="flex flex-col items-end gap-0.5">
-                <span className="text-[15px] font-semibold">
-                  {formatCents(p.amountCents)}
-                </span>
-                <span
-                  className="text-[10px] font-bold uppercase tracking-wide"
-                  style={{ color: statusColor(p.status) }}
-                >
-                  {statusLabel(p.status)}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            totalItems={totalItems}
+            pageSize={pageSize}
+          />
+        </>
       )}
     </div>
   );

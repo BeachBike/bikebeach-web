@@ -1,5 +1,12 @@
 import { useMemo } from 'react';
-import type { PublicBike, SeatMap } from '@/api/public';
+import type { FriendAttending } from '@/api/friends';
+import type {
+  ClassKindColorToken,
+  PublicBike,
+  SeatMap,
+} from '@/api/public';
+import { FriendBubble } from '@/components/common';
+import { firstName } from '@/lib/format';
 
 interface Props {
   seatMap: SeatMap;
@@ -11,11 +18,21 @@ interface Props {
   usualBikeId: string | null;
   /// User's existing reservation on THIS slot (highlighted but not selectable).
   myExistingBikeId: string | null;
+  /// Edit-bike mode — the user is swapping the bike on an existing
+  /// reservation. Allows selecting any free bike except the current one
+  /// (mine = current; selecting it is a no-op, the backend rejects it).
+  editMode?: boolean;
+  /// G1 — friends attending this slot. The component overlays a small
+  /// avatar bubble on the friend's bike cell so the user can spot a buddy
+  /// at a glance.
+  friendsOnSlot?: FriendAttending[];
 }
 
 /// Step 2 — bike picker.
-/// Layout = design B's row-based grid (fileiras A-D × 1-N) for clarity.
-/// Sidebar = design A's info card (selected bike's vista, neighbors, etc).
+/// Layout = adaptive grid sized by `seatMap.unit.maxRows × maxCols` with each
+/// bike placed at its (row, col). The "instructor / palco" cell anchors the
+/// front of the arena and is never selectable. Bikes lacking a (row, col)
+/// pair fall into a tray below the grid for placement-by-admin.
 export function StepBike({
   seatMap,
   bikeId,
@@ -24,9 +41,18 @@ export function StepBike({
   onHoverBike,
   usualBikeId,
   myExistingBikeId,
+  editMode,
+  friendsOnSlot,
 }: Props) {
-  // Group bikes by their row letter (first char of label up to "-").
-  const rows = useMemo(() => groupByRow(seatMap.bikes), [seatMap.bikes]);
+  // Lookup `bikeId → friend` for fast overlay rendering. Waitlisted
+  // friends (no bike) are dropped because there's no cell to attach to.
+  const friendByBike = useMemo(() => {
+    const m = new Map<string, FriendAttending>();
+    for (const f of friendsOnSlot ?? []) {
+      if (f.bikeId) m.set(f.bikeId, f);
+    }
+    return m;
+  }, [friendsOnSlot]);
   const occupiedSet = useMemo(
     () => new Set(seatMap.occupiedBikeIds),
     [seatMap.occupiedBikeIds],
@@ -65,7 +91,8 @@ export function StepBike({
     : null;
 
   const slot = seatMap.slot;
-  const profFirstName = slot.instructor.name.split(' ')[0]?.toLowerCase();
+  const profFirstName = firstName(slot.instructor.name);
+  const kindColor = slot.classKind?.colorToken ?? 'SEA';
 
   return (
     <div className="fadeup">
@@ -76,13 +103,28 @@ export function StepBike({
         className="display-tight mt-3"
         style={{ fontSize: 'clamp(40px,6vw,72px)', lineHeight: 0.92 }}
       >
-        onde você
-        <br />
-        <span className="font-normal italic text-clay">quer pedalar?</span>
+        {editMode ? (
+          <>
+            qual bike
+            <br />
+            <span className="font-normal italic text-clay">você prefere?</span>
+          </>
+        ) : (
+          <>
+            onde você
+            <br />
+            <span className="font-normal italic text-clay">quer pedalar?</span>
+          </>
+        )}
       </h2>
 
       <p className="mt-3.5 max-w-[560px] text-sm text-ink-2">
-        {usualFree ? (
+        {editMode ? (
+          <>
+            sua bike atual aparece em verde. escolha outra livre — a fila A é
+            mais perto do mar.
+          </>
+        ) : usualFree ? (
           <>
             Sua bike de sempre{' '}
             <b className="text-clay">{usualBike!.label}</b> tá livre. Ou tenta
@@ -104,25 +146,26 @@ export function StepBike({
 
       <div className="mt-7 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,1fr)_280px]">
         <Arena
-          rows={rows}
-          slot={slot}
+          seatMap={seatMap}
           profFirstName={profFirstName}
+          kindColor={kindColor}
           occupiedSet={occupiedSet}
           bikeId={bikeId}
           usualBikeId={usualBikeId}
           myExistingBikeId={myExistingBikeId}
+          friendByBike={friendByBike}
           onSelectBike={onSelectBike}
           onHoverBike={onHoverBike}
         />
         <BikeInfoCard
           bike={showBike}
-          rows={rows}
           occupiedSet={occupiedSet}
           isSel={!!bikeId && bikeId === showBike?.id}
           isUsual={!!showBike && showBike.id === usualBikeId}
           isSuggested={!!showBike && showBike.id === suggested}
           isOccupied={!!showBike && occupiedSet.has(showBike.id)}
           isMine={!!showBike && showBike.id === myExistingBikeId}
+          maxRows={seatMap.unit.maxRows}
           onSelect={() =>
             showBike &&
             !occupiedSet.has(showBike.id) &&
@@ -135,27 +178,61 @@ export function StepBike({
 }
 
 interface ArenaProps {
-  rows: ReturnType<typeof groupByRow>;
-  slot: SeatMap['slot'];
+  seatMap: SeatMap;
   profFirstName: string | undefined;
+  kindColor: ClassKindColorToken;
   occupiedSet: Set<string>;
   bikeId: string | null;
   usualBikeId: string | null;
   myExistingBikeId: string | null;
+  friendByBike: Map<string, FriendAttending>;
   onSelectBike: (bikeId: string) => void;
   onHoverBike: (bikeId: string | null) => void;
 }
 
 function Arena({
-  rows,
+  seatMap,
   profFirstName,
+  kindColor,
   occupiedSet,
   bikeId,
   usualBikeId,
   myExistingBikeId,
+  friendByBike,
   onSelectBike,
   onHoverBike,
 }: ArenaProps) {
+  const { unit, bikes } = seatMap;
+  const { maxRows, maxCols } = unit;
+
+  // Build (row → col → bike) lookup for placed bikes. Bikes without a
+  // (row, col) pair land in a tray under the arena.
+  const placed = useMemo(() => {
+    const m = new Map<string, Map<number, PublicBike>>();
+    const orphans: PublicBike[] = [];
+    for (const b of bikes) {
+      if (!b.row || b.col == null) {
+        orphans.push(b);
+        continue;
+      }
+      let row = m.get(b.row);
+      if (!row) {
+        row = new Map();
+        m.set(b.row, row);
+      }
+      row.set(b.col, b);
+    }
+    return { byRow: m, orphans };
+  }, [bikes]);
+
+  const rowLetters = useMemo(() => {
+    return Array.from({ length: maxRows }, (_, i) =>
+      String.fromCharCode('A'.charCodeAt(0) + i),
+    );
+  }, [maxRows]);
+
+  const profBg = colorTokenToCss(kindColor);
+
   return (
     <div>
       {/* Ocean banner */}
@@ -189,48 +266,127 @@ function Arena({
             'repeating-linear-gradient(135deg, var(--color-cream-2) 0 14px, #E0D2B6 14px 28px)',
         }}
       >
-        <div className="mx-auto mb-4 w-fit rounded-xl bg-ink px-4 py-2 text-[12px] font-semibold uppercase tracking-wide text-cream">
-          ⌨ palco · {profFirstName ?? 'instrutor'}
+        {/* Instructor cell — anchored at the front, full grid width minus
+            the row-letter gutter. Always visible, never selectable. */}
+        <div
+          className="mb-4 flex items-center gap-2"
+          aria-label="palco do instrutor"
+        >
+          <span className="w-6 flex-shrink-0" />
+          <div
+            className="flex flex-1 items-center justify-center gap-2.5 rounded-[12px] px-4 py-3 text-cream"
+            style={{
+              background: profBg,
+              boxShadow: '0 10px 24px -12px rgba(28,30,38,.35)',
+              cursor: 'not-allowed',
+            }}
+          >
+            <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">
+              instrutor
+            </span>
+            <span
+              className="display-tight"
+              style={{ fontSize: 18, lineHeight: 1 }}
+            >
+              {profFirstName ?? 'palco'}
+            </span>
+            {seatMap.slot.classKind?.name && (
+              <>
+                <span className="opacity-50">·</span>
+                <span className="text-[12px] lowercase opacity-90">
+                  {seatMap.slot.classKind.name.toLowerCase()}
+                </span>
+              </>
+            )}
+          </div>
         </div>
 
-        {rows.map((row, ri) => (
-          <div
-            key={row.letter}
-            className={`flex items-center gap-2 ${ri < rows.length - 1 ? 'mb-3' : ''}`}
-          >
-            <span
-              className="display-tight w-6 flex-shrink-0 text-ink-2"
-              style={{ fontSize: 18 }}
-            >
-              {row.letter}
-            </span>
+        {rowLetters.map((letter, ri) => {
+          const rowMap = placed.byRow.get(letter);
+          return (
             <div
-              className="grid flex-1 gap-1.5"
-              style={{
-                gridTemplateColumns: `repeat(${row.bikes.length}, minmax(0, 1fr))`,
-              }}
+              key={letter}
+              className={`flex items-center gap-2 ${ri < rowLetters.length - 1 ? 'mb-3' : ''}`}
             >
-              {row.bikes.map((bike) => {
+              <span
+                className="display-tight w-6 flex-shrink-0 text-ink-2"
+                style={{ fontSize: 18 }}
+              >
+                {letter}
+              </span>
+              <div
+                className="grid flex-1 gap-1.5"
+                style={{
+                  gridTemplateColumns: `repeat(${maxCols}, minmax(0, 1fr))`,
+                }}
+              >
+                {Array.from({ length: maxCols }, (_, ci) => {
+                  const col = ci + 1;
+                  const bike = rowMap?.get(col);
+                  if (!bike) {
+                    return (
+                      <span
+                        key={`${letter}-${col}`}
+                        aria-hidden
+                        className="aspect-square min-h-[42px] rounded-[10px] border border-dashed"
+                        style={{ borderColor: 'rgba(196,184,156,.4)' }}
+                      />
+                    );
+                  }
+                  const ocupada = occupiedSet.has(bike.id);
+                  const isSel = bikeId === bike.id;
+                  const isUsual = bike.id === usualBikeId && !ocupada;
+                  const isMine = bike.id === myExistingBikeId;
+                  const friend = friendByBike.get(bike.id) ?? null;
+                  return (
+                    <BikeCell
+                      key={bike.id}
+                      label={bike.label}
+                      selected={isSel}
+                      occupied={ocupada}
+                      usual={isUsual}
+                      mine={isMine}
+                      friend={friend}
+                      onSelect={() => !ocupada && onSelectBike(bike.id)}
+                      onHover={(v) => onHoverBike(v ? bike.id : null)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        {placed.orphans.length > 0 && (
+          <div className="mt-4 rounded-xl border border-dashed border-sand px-3 py-3">
+            <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-ink-2">
+              bikes sem posição
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {placed.orphans.map((bike) => {
                 const ocupada = occupiedSet.has(bike.id);
                 const isSel = bikeId === bike.id;
                 const isUsual = bike.id === usualBikeId && !ocupada;
                 const isMine = bike.id === myExistingBikeId;
+                const friend = friendByBike.get(bike.id) ?? null;
                 return (
-                  <BikeCell
-                    key={bike.id}
-                    label={bike.label}
-                    selected={isSel}
-                    occupied={ocupada}
-                    usual={isUsual}
-                    mine={isMine}
-                    onSelect={() => !ocupada && onSelectBike(bike.id)}
-                    onHover={(v) => onHoverBike(v ? bike.id : null)}
-                  />
+                  <div key={bike.id} className="w-[44px]">
+                    <BikeCell
+                      label={bike.label}
+                      selected={isSel}
+                      occupied={ocupada}
+                      usual={isUsual}
+                      mine={isMine}
+                      friend={friend}
+                      onSelect={() => !ocupada && onSelectBike(bike.id)}
+                      onHover={(v) => onHoverBike(v ? bike.id : null)}
+                    />
+                  </div>
                 );
               })}
             </div>
           </div>
-        ))}
+        )}
       </div>
 
       <div className="mt-3.5 flex flex-wrap gap-4 text-[13px] text-ink-2">
@@ -258,6 +414,7 @@ function BikeCell({
   occupied,
   usual,
   mine,
+  friend,
   onSelect,
   onHover,
 }: {
@@ -266,6 +423,7 @@ function BikeCell({
   occupied: boolean;
   usual: boolean;
   mine: boolean;
+  friend: FriendAttending | null;
   onSelect: () => void;
   onHover: (v: boolean) => void;
 }) {
@@ -304,7 +462,7 @@ function BikeCell({
       onFocus={() => onHover(true)}
       onBlur={() => onHover(false)}
       disabled={occupied && !mine}
-      className="flex aspect-square min-h-[42px] items-center justify-center rounded-[10px] text-[11px] font-bold transition-all"
+      className="relative flex aspect-square min-h-[42px] w-full items-center justify-center rounded-[10px] text-[11px] font-bold transition-all"
       style={{
         background,
         color,
@@ -312,9 +470,23 @@ function BikeCell({
         cursor: occupied && !mine ? 'not-allowed' : 'pointer',
         boxShadow: shadow,
       }}
-      aria-label={`Bike ${label}${occupied ? ' (ocupada)' : ''}`}
+      aria-label={`Bike ${label}${occupied ? ' (ocupada)' : ''}${friend ? ` (amigo ${friend.name})` : ''}`}
     >
       {mine ? '✓' : label}
+      {friend && (
+        <span
+          className="pointer-events-none absolute"
+          style={{ top: -8, right: -8 }}
+        >
+          <FriendBubble
+            userId={friend.userId}
+            name={friend.name}
+            size="sm"
+            ringColor={selected ? 'var(--color-clay)' : 'var(--color-cream)'}
+            title={`amigo: ${friend.name}`}
+          />
+        </span>
+      )}
     </button>
   );
 }
@@ -348,25 +520,24 @@ function Legend({
 
 interface InfoProps {
   bike: PublicBike | null;
-  rows: ReturnType<typeof groupByRow>;
   occupiedSet: Set<string>;
   isSel: boolean;
   isUsual: boolean;
   isSuggested: boolean;
   isOccupied: boolean;
   isMine: boolean;
+  maxRows: number;
   onSelect: () => void;
 }
 
 function BikeInfoCard({
   bike,
-  rows,
-  occupiedSet,
   isSel,
   isUsual,
   isSuggested,
   isOccupied,
   isMine,
+  maxRows,
   onSelect,
 }: InfoProps) {
   if (!bike) {
@@ -398,10 +569,18 @@ function BikeInfoCard({
     );
   }
 
-  const rowLetter = bike.label.split('-')[0]!;
-  const rowIndex = rows.findIndex((r) => r.letter === rowLetter);
-  const vista = vistaForRow(rowLetter, rowIndex, rows.length);
-  const neighbors = bikeNeighbors(bike, rows, occupiedSet);
+  const labelMatch = /^([A-Z])[-_]?(\d+)/.exec(bike.label.trim());
+  const rowLetter =
+    bike.row ?? labelMatch?.[1] ?? bike.label.split('-')[0] ?? '–';
+  const colNumber =
+    bike.col != null
+      ? String(bike.col).padStart(2, '0')
+      : (labelMatch?.[2] ?? bike.label);
+  const rowIdx =
+    rowLetter.length === 1
+      ? rowLetter.charCodeAt(0) - 'A'.charCodeAt(0)
+      : -1;
+  const vista = vistaForRow(rowLetter, rowIdx, maxRows);
 
   const badge = isMine
     ? 'sua reserva atual'
@@ -431,13 +610,13 @@ function BikeInfoCard({
 
       <div>
         <div className="text-[11px] font-bold uppercase tracking-wide text-sun">
-          bike {bike.label}
+          bike {colNumber} · fila {rowLetter}
         </div>
         <div
           className="display-tight mono mt-1.5"
           style={{ fontSize: 60, lineHeight: 0.9 }}
         >
-          {bike.label}
+          {colNumber}
         </div>
       </div>
 
@@ -463,33 +642,8 @@ function BikeInfoCard({
             className="display-tight mt-0.5"
             style={{ fontSize: 22 }}
           >
-            {bike.label.split('-')[1] ?? '–'}
+            {colNumber}
           </div>
-        </div>
-      </div>
-
-      <div className="mt-4">
-        <div className="text-[11px] font-bold uppercase tracking-wide opacity-65">
-          do lado
-        </div>
-        <div className="mt-2 flex flex-wrap gap-2">
-          {neighbors.length === 0 ? (
-            <span className="text-[13px] opacity-60">ponta da fileira</span>
-          ) : (
-            neighbors.map((n) => (
-              <span
-                key={n.bike.id}
-                className="rounded-lg px-2.5 py-1.5 text-xs font-semibold"
-                style={{
-                  background: n.occupied
-                    ? 'rgba(246,239,226,.08)'
-                    : 'rgba(63,122,79,.25)',
-                }}
-              >
-                {n.bike.label} {n.occupied ? '· ocupada' : '· livre'}
-              </span>
-            ))
-          )}
         </div>
       </div>
 
@@ -522,52 +676,29 @@ function BikeInfoCard({
   );
 }
 
-interface RowGroup {
-  letter: string;
-  bikes: PublicBike[];
-}
-
-function groupByRow(bikes: PublicBike[]): RowGroup[] {
-  // Label format from the seed: "Bike 01" / "A-01" / "A1". Try to extract a
-  // row letter; bikes without a row land in the "·" group (rendered last).
-  const map = new Map<string, PublicBike[]>();
-  for (const b of bikes) {
-    const m = /^([A-Z])[-_]?\d+/.exec(b.label.trim());
-    const letter = m ? m[1]! : '·';
-    const arr = map.get(letter) ?? [];
-    arr.push(b);
-    map.set(letter, arr);
-  }
-  return [...map.entries()]
-    .sort(([a], [b]) => a.localeCompare(b))
-    .map(([letter, arr]) => ({
-      letter,
-      bikes: arr.sort((a, b) => a.label.localeCompare(b.label)),
-    }));
-}
-
 function vistaForRow(letter: string, idx: number, total: number): string {
   if (idx === 0 || letter === 'A')
     return 'frente pro mar · vento na cara';
   if (idx === 1 || letter === 'B')
     return 'vista do mar · meio do som';
-  if (idx === total - 1 || letter === 'D')
+  if (total > 0 && idx === total - 1)
     return 'fundo · pra esconder de quem chega';
   return 'perto do palco · som inteiro';
 }
 
-function bikeNeighbors(
-  bike: PublicBike,
-  rows: RowGroup[],
-  occupiedSet: Set<string>,
-): { bike: PublicBike; occupied: boolean }[] {
-  const row = rows.find((r) => r.bikes.some((b) => b.id === bike.id));
-  if (!row) return [];
-  const idx = row.bikes.findIndex((b) => b.id === bike.id);
-  const out: { bike: PublicBike; occupied: boolean }[] = [];
-  for (const offset of [-1, 1]) {
-    const n = row.bikes[idx + offset];
-    if (n) out.push({ bike: n, occupied: occupiedSet.has(n.id) });
+function colorTokenToCss(token: ClassKindColorToken): string {
+  switch (token) {
+    case 'CLAY':
+      return 'var(--color-clay)';
+    case 'SUN':
+      return 'var(--color-sun-d, #C99449)';
+    case 'SEA':
+      return 'var(--color-sea)';
+    case 'SAND':
+      return 'var(--color-sand-d, #BBA683)';
+    case 'INK':
+      return 'var(--color-ink)';
+    case 'GREEN':
+      return '#3F7A4F';
   }
-  return out;
 }

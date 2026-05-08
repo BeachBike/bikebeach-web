@@ -40,9 +40,20 @@ export function KPIs({ packs, reservations }: Props) {
     (acc, p) => acc + p.remainingCredits,
     0,
   );
-  const mainPack = [...activePacks].sort(
-    (a, b) => b.remainingCredits - a.remainingCredits,
-  )[0];
+  const creditSources = new Set(activePacks.map((p) => p.source));
+  const purchasePacks = activePacks.filter((p) => p.source === 'PURCHASE_PACK');
+  const monthlyPacks = activePacks.filter(
+    (p) => p.source === 'SUBSCRIPTION_CYCLE',
+  );
+  const creditLabel = (() => {
+    if (remaining <= 0) return 'compre um pacote';
+    if (creditSources.size > 1) return 'em pacote + mensal';
+    if (purchasePacks.length > 1) return `em ${purchasePacks.length} pacotes`;
+    if (monthlyPacks.length > 1) return 'em ciclos mensais';
+    if (monthlyPacks.length === 1) return 'do plano mensal';
+    const pack = purchasePacks[0] ?? activePacks[0];
+    return pack ? `do pacote ${pack.totalCredits}` : 'compre um pacote';
+  })();
 
   // 2. Vence em — soonest expiring active pack.
   const soonest = [...activePacks]
@@ -78,12 +89,7 @@ export function KPIs({ packs, reservations }: Props) {
     {
       label: 'aulas restantes',
       value: remaining > 0 ? String(remaining) : '—',
-      sub:
-        mainPack?.source === 'SUBSCRIPTION_CYCLE'
-          ? 'do plano mensal'
-          : mainPack
-            ? `do pacote ${mainPack.totalCredits}`
-            : 'compre um pacote',
+      sub: creditLabel,
       tone: 'clay',
     },
     {

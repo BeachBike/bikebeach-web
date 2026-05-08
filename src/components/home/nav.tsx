@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Logo } from '@/components/brand/logo';
+import { useAuthStore } from '@/stores/auth';
+import { useRoleHome } from '@/hooks/useRoleHome';
 
 const LINKS = [
   ['Aulas', '#aulas'],
@@ -10,7 +12,8 @@ const LINKS = [
 ] as const;
 
 /// Fixed nav. Transparent at top, blurred cream once the user scrolls past
-/// the hero. Mirrors the prototype's behaviour exactly.
+/// the hero. Auth-aware (D1 / item 1): logged users see a "abrir painel"
+/// CTA wired to their role-specific portal instead of "Entrar / Reservar".
 export function Nav() {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
@@ -19,6 +22,9 @@ export function Nav() {
     window.addEventListener('scroll', onScroll);
     return () => window.removeEventListener('scroll', onScroll);
   }, []);
+
+  const user = useAuthStore((s) => s.user);
+  const home = useRoleHome();
 
   return (
     <nav
@@ -47,19 +53,43 @@ export function Nav() {
       </div>
 
       <div className="flex items-center gap-2">
-        <Link
-          to="/login"
-          className="px-4 py-2 text-sm font-semibold text-ink"
-        >
-          Entrar
-        </Link>
-        <Link
-          to="/cadastro"
-          className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-ink-2"
-        >
-          Reservar bike <span aria-hidden>↗</span>
-        </Link>
+        {user && home ? (
+          <Link
+            to={home}
+            className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-ink-2"
+          >
+            <Avatar name={user.email} />
+            <span className="hidden sm:inline">abrir painel</span>
+            <span className="hidden sm:inline" aria-hidden>
+              ↗
+            </span>
+          </Link>
+        ) : (
+          <>
+            <Link
+              to="/login"
+              className="px-4 py-2 text-sm font-semibold text-ink"
+            >
+              Entrar
+            </Link>
+            <Link
+              to="/cadastro"
+              className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-ink-2"
+            >
+              Reservar bike <span aria-hidden>↗</span>
+            </Link>
+          </>
+        )}
       </div>
     </nav>
+  );
+}
+
+function Avatar({ name }: { name: string }) {
+  const initials = (name || 'AB').slice(0, 2).toUpperCase();
+  return (
+    <span className="grid size-7 place-items-center rounded-full bg-sun text-[11px] font-extrabold text-ink">
+      {initials}
+    </span>
   );
 }

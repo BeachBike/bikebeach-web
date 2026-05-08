@@ -18,6 +18,13 @@ export interface Me {
   unitId: string | null;
   isActive: boolean;
   mustChangePassword: boolean;
+  bio: string | null;
+  /// G1 — global "modo invisível" toggle. When true the user is hidden
+  /// from friends-attending overlays everywhere.
+  hideReservationsFromFriends: boolean;
+  /// 2026-05 — arenas the user (typically INSTRUCTOR) can teach at.
+  /// Empty for ADMIN/USER. Drives the arena selector in the prof drawer.
+  arenas: { id: string; slug: string; name: string }[];
   createdAt: string;
 }
 
@@ -56,6 +63,7 @@ export interface Reservation {
   status: ReservationStatus;
   checkedInAt: string | null;
   cancelledAt: string | null;
+  cancellationReason: string | null;
   createdAt: string;
   classSlot: {
     id: string;
@@ -73,12 +81,35 @@ export interface Reservation {
       | 'CANCELLED_BEFORE'
       | 'CANCELLED_DURING'
       | 'COMPLETED';
+    /// Cancellation metadata — populated when the slot was cancelled by
+    /// the studio (instructor or admin). Surfaced in the user's "minhas
+    /// próximas aulas" so they see the reason without digging.
+    cancellationKind: 'PERSONAL' | 'STUDIO' | null;
+    studioCancellationReason:
+      | 'CHUVA'
+      | 'VENTO'
+      | 'RAIO'
+      | 'TECNICO'
+      | 'MAR_ALTO'
+      | 'MANUTENCAO'
+      | 'SEGURANCA'
+      | 'BAIXA_ADESAO'
+      | 'OUTRO'
+      | null;
+    personalCancellationReason:
+      | 'SAUDE'
+      | 'PESSOAL'
+      | 'CLIMA'
+      | 'OUTRO'
+      | null;
+    cancellationDescription: string | null;
+    cancelledAt: string | null;
   };
   bike: {
     id: string;
     label: string;
-    positionX: number | null;
-    positionY: number | null;
+    row: string | null;
+    col: number | null;
   };
 }
 
@@ -108,21 +139,50 @@ export function useMe() {
   });
 }
 
-export function useMyCreditPacks() {
+/// Self-service profile update. The backend allows email / phone / cpf /
+/// birthDate; name is intentionally read-only at this layer (recepção
+/// flow). Empty strings on `phone` and `cpf` clear the field.
+export interface UpdateMePayload {
+  email?: string;
+  phone?: string;
+  cpf?: string;
+  /// ISO date (YYYY-MM-DD) — backend accepts the same `IsDateString` shape.
+  birthDate?: string;
+}
+
+export function useUpdateMe() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: UpdateMePayload) =>
+      api.patch<Me>('/users/me', payload).then((r) => r.data),
+    onSuccess: (data) => {
+      qc.setQueryData(['me'], data);
+    },
+  });
+}
+
+export function useMyCreditPacks(options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: ['credit-packs', 'me'],
     queryFn: () =>
       api.get<CreditPack[]>('/credit-packs/me').then((r) => r.data),
     staleTime: 60_000,
+    enabled: options.enabled ?? true,
   });
 }
 
 export function useMyReservations() {
+  // Polled every 30s so live-state transitions (próxima → ao vivo, ao vivo
+  // → finalizada via cron) reflect on the dashboard without a manual
+  // refresh. The window stays small because the cards depend on
+  // `nowTick` for re-evaluation; data still needs to be fresh.
   return useQuery({
     queryKey: ['reservations', 'me'],
     queryFn: () =>
       api.get<Reservation[]>('/reservations/me').then((r) => r.data),
     staleTime: 30_000,
+    refetchInterval: 30_000,
+    refetchIntervalInBackground: false,
   });
 }
 
@@ -131,6 +191,39 @@ export function useMyPayments() {
     queryKey: ['payments', 'me'],
     queryFn: () => api.get<Payment[]>('/payments/me').then((r) => r.data),
     staleTime: 60_000,
+  });
+}
+
+export interface MySubscription {
+  id: string;
+  userId: string;
+  planId: string;
+  asaasSubscriptionId: string | null;
+  status:
+    | 'PENDING_PAYMENT'
+    | 'ACTIVE'
+    | 'PAUSED'
+    | 'CANCELLED'
+    | 'PAST_DUE';
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  cancelledAt: string | null;
+  createdAt: string;
+  plan: {
+    id: string;
+    name: string;
+    monthlyCredits: number;
+    priceCents: number;
+  };
+}
+
+export function useMySubscriptions(options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: ['subscriptions', 'me'],
+    queryFn: () =>
+      api.get<MySubscription[]>('/subscriptions/me').then((r) => r.data),
+    staleTime: 60_000,
+    enabled: options.enabled ?? true,
   });
 }
 
@@ -151,6 +244,53 @@ export function useCancelReservation() {
 export interface CreateReservationPayload {
   classSlotId: string;
   bikeId: string;
+}
+
+/// User self-marks themselves as a no-show with an explicit reason.
+/// Status → NO_SHOW; credit is forfeit. Allowed only during the slot's
+/// run window (between startsAt and startsAt+duration).
+export function useSelfNoShow() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      reservationId,
+      reason,
+    }: {
+      reservationId: string;
+      reason: string;
+    }) =>
+      api
+        .post<Reservation>(`/reservations/${reservationId}/self-no-show`, {
+          reason,
+        })
+        .then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['reservations', 'me'] });
+    },
+  });
+}
+
+/// Swap the bike on an existing reservation. Backend gates this on the 8h
+/// window — outside it returns 400. Credit isn't consumed (it's the same
+/// reservation, just a different bike).
+export function useChangeBike() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      reservationId,
+      bikeId,
+    }: {
+      reservationId: string;
+      bikeId: string;
+    }) =>
+      api
+        .patch<Reservation>(`/reservations/${reservationId}/bike`, { bikeId })
+        .then((r) => r.data),
+    onSuccess: (data) => {
+      qc.invalidateQueries({ queryKey: ['reservations', 'me'] });
+      qc.invalidateQueries({ queryKey: ['seat-map', data.classSlotId] });
+    },
+  });
 }
 
 /// Reserve a specific bike on a class slot. The backend enforces capacity,
@@ -192,5 +332,117 @@ export function useJoinWaitlist() {
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['seat-map', data.classSlotId] });
     },
+  });
+}
+
+export interface CreatePixPackResult {
+  paymentId: string;
+  asaasChargeId: string;
+  amountCents: number;
+  basePriceCents: number;
+  pixDiscountPercent: number;
+  pix: {
+    qrCodeImage: string; // base64 PNG without the data URL prefix
+    qrCodePayload: string; // copia-e-cola string
+    expiresAt: string;
+  };
+}
+
+/// Kick off a one-off PackOffer purchase via PIX. Returns the QR code +
+/// `paymentId` to poll. The actual CreditPack is created by the Asaas
+/// webhook once the user pays.
+export function useCreatePixPack() {
+  return useMutation({
+    mutationFn: (packOfferId: string) =>
+      api
+        .post<CreatePixPackResult>('/payments/pix-pack', { packOfferId })
+        .then((r) => r.data),
+  });
+}
+
+export interface SubscriptionResult {
+  id: string;
+  userId: string;
+  planId: string;
+  asaasSubscriptionId: string | null;
+  status:
+    | 'PENDING_PAYMENT'
+    | 'ACTIVE'
+    | 'PAUSED'
+    | 'CANCELLED'
+    | 'PAST_DUE';
+  currentPeriodStart: string;
+  currentPeriodEnd: string;
+  plan: {
+    id: string;
+    name: string;
+    monthlyCredits: number;
+    priceCents: number;
+  };
+}
+
+export function useCreateSubscription() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (planId: string) =>
+      api
+        .post<SubscriptionResult>('/subscriptions', { planId })
+        .then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'me'] });
+      qc.invalidateQueries({ queryKey: ['credit-packs', 'me'] });
+      qc.invalidateQueries({ queryKey: ['payments', 'me'] });
+    },
+  });
+}
+
+export function useCancelSubscription() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (subscriptionId: string) =>
+      api
+        .delete<MySubscription>(`/subscriptions/${subscriptionId}`)
+        .then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['subscriptions', 'me'] });
+      qc.invalidateQueries({ queryKey: ['credit-packs', 'me'] });
+      qc.invalidateQueries({ queryKey: ['payments', 'me'] });
+    },
+  });
+}
+
+/// Poll a single payment until it leaves PENDING. Backend marks PAID once
+/// the Asaas webhook fires. We intentionally use a short interval (3s) and
+/// stop polling as soon as we see a terminal status.
+export function usePaymentPolling(
+  paymentId: string | undefined,
+  options: { enabled: boolean } = { enabled: true },
+) {
+  const qc = useQueryClient();
+
+  return useQuery({
+    queryKey: ['payment', paymentId],
+    enabled: !!paymentId && options.enabled,
+    queryFn: async () => {
+      const payment = await api
+        .get<Payment>(`/payments/${paymentId}`)
+        .then((r) => r.data);
+
+      if (payment.status === 'PAID') {
+        await Promise.all([
+          qc.invalidateQueries({ queryKey: ['credit-packs', 'me'] }),
+          qc.invalidateQueries({ queryKey: ['payments', 'me'] }),
+          qc.invalidateQueries({ queryKey: ['subscriptions', 'me'] }),
+          qc.invalidateQueries({ queryKey: ['reservations', 'me'] }),
+        ]);
+      }
+
+      return payment;
+    },
+    refetchInterval: (query) => {
+      const data = query.state.data as Payment | undefined;
+      return data?.status === 'PENDING' ? 3_000 : false;
+    },
+    staleTime: 0,
   });
 }

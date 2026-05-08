@@ -9,7 +9,6 @@ import {
 import { Logo } from '@/components/brand/logo';
 import { LiabilityCard } from '@/components/saude/liability-card';
 import { ParqForm, type ParqAnswers } from '@/components/saude/parq-form';
-import { formatFullDate } from '@/lib/format';
 import { useAuthStore } from '@/stores/auth';
 
 /// Health-gate page. Two cards stacked:
@@ -108,46 +107,14 @@ export function SaudeRoute() {
                 onAccept={onAcceptLiability}
               />
 
-              <section className="rounded-[20px] border-[1.5px] border-sand bg-cream p-6">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <div className="text-xs font-bold uppercase tracking-widest text-clay">
-                      par-q · screening trimestral
-                    </div>
-                    <h2
-                      className="display-tight mt-1.5"
-                      style={{ fontSize: 28, lineHeight: 1.05 }}
-                    >
-                      sete perguntas, 30 segundos
-                    </h2>
-                  </div>
-                  <ParqStatus
-                    valid={status.parq.valid}
-                    acceptedAt={status.parq.acceptedAt}
-                  />
-                </div>
-                <p className="mt-3 text-[14px] text-ink-2">
-                  São perguntas padrão para liberar atividade física segura. Se
-                  qualquer resposta indicar atenção, recomendamos avaliação
-                  médica antes da primeira aula.
-                  {status.parq.acceptedAt && (
-                    <>
-                      {' '}
-                      Última submissão em{' '}
-                      <b>{formatFullDate(status.parq.acceptedAt)}</b>.
-                    </>
-                  )}
-                </p>
-
-                <div className="mt-5">
-                  <ParqForm
-                    initialAnswers={status.parq.latestAnswers}
-                    isSubmitting={parqM.isPending}
-                    errorMessage={parqError}
-                    onSubmit={onSubmitParq}
-                  />
-                </div>
-              </section>
+              <ParqForm
+                valid={status.parq.valid}
+                acceptedAt={status.parq.acceptedAt}
+                initialAnswers={status.parq.latestAnswers}
+                isSubmitting={parqM.isPending}
+                errorMessage={parqError}
+                onSubmit={onSubmitParq}
+              />
             </div>
           </>
         )}
@@ -199,39 +166,6 @@ function SuccessBanner({
         </Link>
       )}
     </div>
-  );
-}
-
-function ParqStatus({
-  valid,
-  acceptedAt,
-}: {
-  valid: boolean;
-  acceptedAt: string | null;
-}) {
-  if (valid) {
-    return (
-      <span
-        className="rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest"
-        style={{
-          background: 'var(--color-success)',
-          color: 'var(--color-cream)',
-        }}
-      >
-        em dia
-      </span>
-    );
-  }
-  return (
-    <span
-      className="rounded-full px-3 py-1.5 text-[10px] font-bold uppercase tracking-widest"
-      style={{
-        background: 'var(--color-clay-d)',
-        color: 'var(--color-cream)',
-      }}
-    >
-      {acceptedAt ? 'expirado' : 'pendente'}
-    </span>
   );
 }
 

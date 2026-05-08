@@ -4,10 +4,14 @@ import { formatHourMinute, relativeDayLabel } from '@/lib/format';
 interface Props {
   seatMap: SeatMap;
   bike: PublicBike;
+  /// When the success screen renders after PATCH /bike (edit-bike flow)
+  /// instead of POST /reservations, swap the headline copy so the user
+  /// understands the bike was swapped, not double-booked.
+  editMode?: boolean;
 }
 
 /// Final ceremony — pulsing checkmark + bike id + auto-redirect message.
-export function ReservationSuccess({ seatMap, bike }: Props) {
+export function ReservationSuccess({ seatMap, bike, editMode }: Props) {
   const slot = seatMap.slot;
   const titulo = slot.classKind?.name?.toLowerCase() ?? slot.title ?? 'aula';
   const dia = relativeDayLabel(slot.startsAt);
@@ -32,7 +36,7 @@ export function ReservationSuccess({ seatMap, bike }: Props) {
         className="display-tight"
         style={{ fontSize: 'clamp(40px,6vw,72px)', lineHeight: 0.95 }}
       >
-        tá reservado.
+        {editMode ? 'bike trocada.' : 'tá reservado.'}
       </div>
       <p className="mt-3.5 max-w-[420px] text-base text-ink-2">
         {titulo} · {dia} · {formatHourMinute(slot.startsAt)} · bike{' '}

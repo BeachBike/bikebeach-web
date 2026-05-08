@@ -1,7 +1,7 @@
 import { Link } from 'react-router';
 import type { Reservation } from '@/api/me';
 import { useDefaultUnit, useTodayClassSlots } from '@/api/public';
-import { formatHourMinute, intensityLabel } from '@/lib/format';
+import { firstName, formatHourMinute, intensityLabel } from '@/lib/format';
 
 interface Props {
   reservations: Reservation[] | undefined;
@@ -78,7 +78,7 @@ export function Recs({ reservations }: Props) {
               </div>
               <div>
                 <div className="text-sm font-semibold opacity-85">
-                  com {s.instructor.name.split(' ')[0]?.toLowerCase()} ·{' '}
+                  com {firstName(s.instructor.name)} ·{' '}
                   {intensityLabel(s.classKind?.intensity)}
                 </div>
                 <div className="mt-3.5 flex items-center justify-between">

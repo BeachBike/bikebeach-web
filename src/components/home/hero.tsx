@@ -1,10 +1,12 @@
 import { Link } from 'react-router';
 import { useDefaultUnit } from '@/api/public';
-import { Placeholder } from './placeholder';
+import { useRoleHome } from '@/hooks/useRoleHome';
+import SpinningBcImg from '@/assets/SpinningBc.png';
 
 export function Hero() {
   const { unit } = useDefaultUnit();
   const bikeCount = unit?.operationalBikeCount;
+  const home = useRoleHome();
 
   // Keep the copy human even before the API call resolves — fall back to
   // generic phrasing instead of flashing a number from nothing.
@@ -45,10 +47,10 @@ export function Hero() {
 
           <div className="flex flex-col gap-3">
             <Link
-              to="/cadastro"
+              to={home ?? '/cadastro'}
               className="inline-flex items-center justify-between gap-3 rounded-full bg-clay px-7 py-5 text-base font-semibold text-cream shadow-[0_18px_40px_-16px_rgba(216,93,52,.6)] transition-colors hover:bg-clay-d"
             >
-              Reservar minha bike <span>→</span>
+              {home ? 'Abrir meu painel' : 'Reservar minha bike'} <span>→</span>
             </Link>
             <a
               href="#planos"
@@ -59,10 +61,11 @@ export function Hero() {
           </div>
 
           <div>
-            <Placeholder
-              label="foto wide: arena na areia, gente pedalando ao pôr do sol"
-              ratio="5/4"
-              tone="sea"
+            <img
+              src={SpinningBcImg}
+              alt="arena na areia, gente pedalando ao pôr do sol"
+              className="w-full rounded-[14px] object-cover"
+              style={{ aspectRatio: '5/4' }}
             />
           </div>
         </div>

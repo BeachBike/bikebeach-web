@@ -1,5 +1,5 @@
 import type { PublicClassSlot } from '@/api/public';
-import { formatHourMinute } from '@/lib/format';
+import { firstName, formatHourMinute } from '@/lib/format';
 
 interface Props {
   slot: PublicClassSlot | null;
@@ -23,7 +23,7 @@ export function WaitlistModal({
 }: Props) {
   if (!slot) return null;
   const titulo = slot.classKind?.name?.toLowerCase() ?? slot.title ?? 'aula';
-  const profFirstName = slot.instructor.name.split(' ')[0]?.toLowerCase();
+  const profFirstName = firstName(slot.instructor.name);
   const joined = position !== null;
 
   return (

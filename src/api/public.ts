@@ -9,11 +9,25 @@ export interface PublicUnit {
   slug: string;
   name: string;
   address: string;
+  description: string | null;
+  /// Layout grid bounds — fileiras (A..J, 2..10) e colunas (1..12).
+  maxRows: number;
+  maxCols: number;
   isActive: boolean;
+  /// Live count of operational bikes — drives capacity hints across the
+  /// app. PIX discount + tolerância de check-in foram promovidos a
+  /// constantes globais em 2026-05 (ver `web/src/lib/constants.ts`).
   lateCheckinToleranceMinutes: number;
-  pixDiscountPercent: number;
   operationalBikeCount: number;
 }
+
+export type ClassKindColorToken =
+  | 'CLAY'
+  | 'SUN'
+  | 'SEA'
+  | 'SAND'
+  | 'INK'
+  | 'GREEN';
 
 export interface PublicClassKind {
   id: string;
@@ -22,6 +36,7 @@ export interface PublicClassKind {
   defaultDurationMinutes: number;
   intensity: number;
   tone: string | null;
+  colorToken: ClassKindColorToken;
 }
 
 export interface PublicClassSlot {
@@ -48,6 +63,11 @@ export interface PublicPackOffer {
   expirationDays: number;
   isActive: boolean;
   displayOrder: number;
+  /// C3 — optional time-windowed discount campaign. The 3 fields are
+  /// always returned but may be `null` when no campaign is configured.
+  discountPercent: number | null;
+  discountStartsAt: string | null;
+  discountEndsAt: string | null;
 }
 
 const STALE_5_MIN = 5 * 60_000;
@@ -65,6 +85,44 @@ export function useUnits() {
 export function useDefaultUnit() {
   const q = useUnits();
   return { ...q, unit: q.data?.[0] };
+}
+
+export interface FeaturedInstructor {
+  id: string;
+  name: string;
+  bio: string | null;
+  primaryClassKind: {
+    id: string;
+    slug: string;
+    name: string;
+    colorToken:
+      | 'CLAY'
+      | 'SUN'
+      | 'SEA'
+      | 'SAND'
+      | 'INK'
+      | 'GREEN';
+  } | null;
+}
+
+/// Top-N active instructors of the unit, public — feeds the home "galera
+/// que conduz o pedal" section (D2 / item 2).
+export function useFeaturedInstructors(
+  unitId: string | undefined,
+  limit = 4,
+) {
+  return useQuery({
+    queryKey: ['featured-instructors', unitId, limit],
+    enabled: !!unitId,
+    queryFn: () =>
+      api
+        .get<FeaturedInstructor[]>(
+          `/units/${unitId}/featured-instructors`,
+          { params: { limit } },
+        )
+        .then((r) => r.data),
+    staleTime: STALE_5_MIN,
+  });
 }
 
 export function useTodayClassSlots(unitId: string | undefined, dateOffset = 0) {
@@ -104,13 +162,20 @@ export function usePackOffers(unitId: string | undefined) {
 export interface PublicBike {
   id: string;
   label: string;
-  positionX: number | null;
-  positionY: number | null;
+  row: string | null;
+  col: number | null;
   status: 'OPERATIONAL' | 'MAINTENANCE' | 'OUT_OF_SERVICE';
 }
 
 export interface SeatMap {
   slot: PublicClassSlot;
+  /// Layout bounds for the unit's arena. Used by the bike picker to render
+  /// an adaptive grid instead of hardcoding 4×8.
+  unit: {
+    id: string;
+    maxRows: number;
+    maxCols: number;
+  };
   bikes: PublicBike[];
   occupiedBikeIds: string[];
   freeSpots: number;
@@ -148,5 +213,58 @@ export function useClassSlotsRange(
         })
         .then((r) => r.data),
     staleTime: 60_000,
+  });
+}
+
+export interface PublicPlan {
+  id: string;
+  name: string;
+  monthlyCredits: number;
+  priceCents: number;
+  isActive: boolean;
+  discountPercent: number | null;
+  discountStartsAt: string | null;
+  discountEndsAt: string | null;
+}
+
+export function usePlans() {
+  return useQuery({
+    queryKey: ['plans'],
+    queryFn: () => api.get<PublicPlan[]>('/plans').then((r) => r.data),
+    staleTime: STALE_5_MIN,
+  });
+}
+
+export function usePlan(planId: string | undefined) {
+  return useQuery({
+    queryKey: ['plan', planId],
+    enabled: !!planId,
+    queryFn: () =>
+      api.get<PublicPlan>(`/plans/${planId}`).then((r) => r.data),
+    staleTime: STALE_5_MIN,
+  });
+}
+
+/// PackOffer detail by id. There's no GET /pack-offers/:id; we resolve by
+/// scanning every unit's public list and picking by id. v1 has a single
+/// active unit so this is one extra call.
+export function usePackOffer(packOfferId: string | undefined) {
+  return useQuery({
+    queryKey: ['pack-offer', packOfferId],
+    enabled: !!packOfferId,
+    queryFn: async () => {
+      const units = await api
+        .get<PublicUnit[]>('/units')
+        .then((r) => r.data);
+      for (const u of units) {
+        const offers = await api
+          .get<PublicPackOffer[]>('/pack-offers', { params: { unitId: u.id } })
+          .then((r) => r.data);
+        const found = offers.find((o) => o.id === packOfferId);
+        if (found) return { offer: found, unit: u };
+      }
+      throw new Error('PackOffer not found');
+    },
+    staleTime: STALE_5_MIN,
   });
 }

@@ -28,6 +28,7 @@ export function Intro({ userName, packs, onStart }: Props) {
       ? 'do plano mensal'
       : `do pacote ${main.totalCredits}`
     : 'sem pacote ativo';
+  const hasMultipleCreditPacks = active.length > 1;
 
   const greetingName = firstName(userName) || 'você';
 
@@ -94,7 +95,9 @@ export function Intro({ userName, packs, onStart }: Props) {
                 {packLabel}
               </span>
               <span className="mt-0.5 opacity-75">
-                essa reserva consome 1
+                {hasMultipleCreditPacks
+                  ? 'usa primeiro o que vence antes'
+                  : 'essa reserva consome 1'}
               </span>
             </div>
           ) : (
@@ -110,7 +113,7 @@ export function Intro({ userName, packs, onStart }: Props) {
         <div className="mt-20 flex flex-wrap gap-9 border-t border-sand pt-8">
           {[
             { n: '01', t: 'escolha o horário', s: '7 dias na frente' },
-            { n: '02', t: 'escolha sua bike', s: 'arena com 32 bikes' },
+            { n: '02', t: 'escolha sua bike', s: 'frota completa' },
             { n: '03', t: 'confirme & pedale', s: 'crédito do pacote' },
           ].map((p) => (
             <div

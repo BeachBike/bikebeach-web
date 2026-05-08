@@ -1,24 +1,37 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import type { Reservation } from '@/api/me';
-import { formatCountdown, intensityLabel } from '@/lib/format';
+import { firstName, formatCountdown, intensityLabel } from '@/lib/format';
 import { Button } from '@/components/ui/button';
+import { AbsenceModal } from './absence-modal';
 
 interface Props {
   reservation: Reservation | undefined;
   onCancel: (reservationId: string) => void;
+  onMarkAbsent: (reservationId: string, reason: string) => void;
   cancelling: boolean;
+  markingAbsent: boolean;
 }
 
-/// Hero card for the next upcoming reservation. Shows a live HH:MM:SS
-/// countdown and the bike id. Falls back to an empty-state CTA when the
-/// user has no upcoming class.
-export function NextClass({ reservation, onCancel, cancelling }: Props) {
-  const [, setTick] = useState(0);
+/// Hero card for the next upcoming reservation. While the slot is in its
+/// run window (`startsAt ≤ now ≤ startsAt + duration`) we swap the "começa
+/// em" stat for "termina em" + a progress bar, and surface the "marcar
+/// ausência" CTA. Outside that window the card behaves as before.
+export function NextClass({
+  reservation,
+  onCancel,
+  onMarkAbsent,
+  cancelling,
+  markingAbsent,
+}: Props) {
+  const [tick, setTick] = useState(0);
   useEffect(() => {
     const t = setInterval(() => setTick((n) => n + 1), 1000);
     return () => clearInterval(t);
   }, []);
+  void tick; // referenced via render below
+
+  const [absenceOpen, setAbsenceOpen] = useState(false);
 
   if (!reservation) {
     return (
@@ -65,6 +78,18 @@ export function NextClass({ reservation, onCancel, cancelling }: Props) {
   const titulo =
     slot.classKind?.name?.toLowerCase() ?? slot.title ?? 'aula';
   const intens = intensityLabel(slot.classKind?.intensity);
+  const startMs = new Date(slot.startsAt).getTime();
+  const endMs = startMs + slot.durationMinutes * 60_000;
+  const now = Date.now();
+  const isLive = now >= startMs && now <= endMs;
+  const hoursToClass = (startMs - now) / 3_600_000;
+  const canEditBike = hoursToClass >= 8;
+
+  // Progress 0..1 — clamped, only meaningful while live.
+  const progress = isLive
+    ? Math.max(0, Math.min(1, (now - startMs) / (endMs - startMs)))
+    : 0;
+  const endsInIso = new Date(endMs).toISOString();
 
   return (
     <div className="relative col-span-12 flex min-h-[340px] flex-col justify-between overflow-hidden rounded-[22px] bg-ink p-7 text-cream lg:col-span-7">
@@ -79,7 +104,7 @@ export function NextClass({ reservation, onCancel, cancelling }: Props) {
       <div className="relative">
         <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wide text-sun">
           <span className="bb-pulse h-2 w-2 rounded-full bg-sun" />
-          sua próxima aula
+          {isLive ? 'ao vivo · pedalando agora' : 'sua próxima aula'}
         </div>
         <div
           className="display-tight mt-3.5"
@@ -88,14 +113,14 @@ export function NextClass({ reservation, onCancel, cancelling }: Props) {
           {titulo}
           <br />
           <span className="font-normal italic opacity-70">
-            com {slot.instructor.name.split(' ')[0]?.toLowerCase()}
+            com {firstName(slot.instructor.name)}
           </span>
         </div>
 
         <div className="mt-8 flex flex-wrap items-stretch gap-4">
           <Stat
-            label="começa em"
-            value={formatCountdown(slot.startsAt)}
+            label={isLive ? 'termina em' : 'começa em'}
+            value={formatCountdown(isLive ? endsInIso : slot.startsAt)}
             mono
           />
           <Divider />
@@ -106,12 +131,40 @@ export function NextClass({ reservation, onCancel, cancelling }: Props) {
           <Stat label="pegada" value={intens} />
         </div>
 
+        {isLive && (
+          <div className="mt-5">
+            <div className="h-1.5 overflow-hidden rounded-full bg-cream/15">
+              <div
+                className="h-full rounded-full bg-sun transition-[width] duration-1000 ease-linear"
+                style={{ width: `${progress * 100}%` }}
+              />
+            </div>
+            <div className="mt-1.5 flex justify-between text-[11px] font-semibold uppercase tracking-wide text-cream/65">
+              <span>iniciada</span>
+              <span>{Math.round(progress * 100)}%</span>
+              <span>fim</span>
+            </div>
+          </div>
+        )}
+
         <div className="mt-7 flex flex-wrap gap-2.5">
-          <Button asChild size="lg" className="bg-clay hover:bg-clay-d">
-            <Link to={`/reservar?slot=${slot.id}`}>
-              ver detalhes da aula <span aria-hidden>→</span>
-            </Link>
-          </Button>
+          {canEditBike && !isLive && (
+            <Button asChild size="lg" className="bg-clay hover:bg-clay-d">
+              <Link to={`/reservar?edit=${reservation.id}`}>
+                trocar bike <span aria-hidden>→</span>
+              </Link>
+            </Button>
+          )}
+          {isLive && (
+            <button
+              type="button"
+              disabled={markingAbsent}
+              onClick={() => setAbsenceOpen(true)}
+              className="rounded-full bg-clay px-6 py-3 text-sm font-semibold text-cream transition-colors hover:bg-clay-d disabled:opacity-50"
+            >
+              {markingAbsent ? 'marcando…' : 'marcar ausência'}
+            </button>
+          )}
           <button
             type="button"
             disabled={cancelling}
@@ -122,6 +175,16 @@ export function NextClass({ reservation, onCancel, cancelling }: Props) {
           </button>
         </div>
       </div>
+
+      <AbsenceModal
+        open={absenceOpen}
+        onClose={() => !markingAbsent && setAbsenceOpen(false)}
+        onConfirm={(reason) => {
+          onMarkAbsent(reservation.id, reason);
+          setAbsenceOpen(false);
+        }}
+        loading={markingAbsent}
+      />
     </div>
   );
 }

@@ -5,6 +5,7 @@ import {
   useTodayClassSlots,
   type PublicClassSlot,
 } from '@/api/public';
+import { useRoleHome } from '@/hooks/useRoleHome';
 
 const DAYS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'] as const;
 
@@ -37,8 +38,12 @@ export function Aulas() {
   const { unit } = useDefaultUnit();
   const { data: slots, isLoading } = useTodayClassSlots(unit?.id, dateOffset);
 
-  const visible = slots ?? [];
-  const headlineCount = visible.length;
+  // D2 / item 3 — cap to 6 entries per day; the headline still mentions the
+  // full count of the day so visitors know there's more.
+  const all = slots ?? [];
+  const headlineCount = all.length;
+  const visible = all.slice(0, 6);
+  const overflow = Math.max(0, headlineCount - visible.length);
 
   return (
     <section id="aulas" className="px-7 pb-[120px] pt-10">
@@ -98,6 +103,17 @@ export function Aulas() {
           <SlotRow key={a.id} slot={a} />
         ))}
       </div>
+
+      {overflow > 0 && (
+        <div className="mt-8 flex justify-center">
+          <Link
+            to="/reservar"
+            className="inline-flex items-center gap-2 rounded-full border-[1.5px] border-ink px-6 py-3 text-sm font-semibold text-ink transition-colors hover:bg-ink hover:text-cream"
+          >
+            ver mais {overflow} aula{overflow === 1 ? '' : 's'} →
+          </Link>
+        </div>
+      )}
     </section>
   );
 }
@@ -107,10 +123,14 @@ function SlotRow({ slot }: { slot: PublicClassSlot }) {
   const lotada = slot.freeSpots === 0;
   const titulo = slot.classKind?.name?.toLowerCase() ?? slot.title ?? 'aula';
   const intens = intensityLabel(slot.classKind?.intensity);
+  const home = useRoleHome();
+  // Logged users go to /reservar (deep-linking comes later in E2). Public
+  // visitors land on /cadastro to start the funnel.
+  const target = home ? '/reservar' : '/cadastro';
 
   return (
     <Link
-      to={lotada ? '/cadastro' : '/cadastro'}
+      to={target}
       onMouseEnter={() => setHover(true)}
       onMouseLeave={() => setHover(false)}
       className="grid grid-cols-[110px_1fr_140px_auto] gap-6 border-b border-sand px-3 py-6 transition-colors lg:grid-cols-[140px_1fr_180px_200px_200px_60px]"
