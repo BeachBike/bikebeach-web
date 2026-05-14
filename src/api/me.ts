@@ -32,16 +32,31 @@ export type CreditSource =
   | 'PURCHASE_PACK'
   | 'SUBSCRIPTION_CYCLE'
   | 'ADMIN_GRANT'
-  | 'REFUND';
+  | 'REFUND'
+  /// 2026-05 — credits sent from a friend's pack via the transfer flow.
+  | 'TRANSFER';
+
+export interface CreditPackCoOwner {
+  user: { id: string; name: string; email: string };
+}
 
 export interface CreditPack {
   id: string;
+  /// User id that owns the pack (the buyer). Co-owners live in `coOwners`.
+  /// Surfaced so the FE can tell "I bought it" from "I was added as a friend".
+  userId?: string;
   source: CreditSource;
   totalCredits: number;
   remainingCredits: number;
   expiresAt: string | null;
   subscriptionId: string | null;
   paymentId: string | null;
+  /// 2026-05 — snapshot of the PackOffer flags. Drive the transfer/share
+  /// CTAs on the user's wallet.
+  isTransferable: boolean;
+  maxSharedUsers: number;
+  /// Friends co-owning this pack (admin-defined max via `maxSharedUsers`).
+  coOwners?: CreditPackCoOwner[];
   createdAt: string;
 }
 
@@ -131,11 +146,12 @@ export interface Payment {
   createdAt: string;
 }
 
-export function useMe() {
+export function useMe(options?: { enabled?: boolean }) {
   return useQuery({
     queryKey: ['me'],
     queryFn: () => api.get<Me>('/users/me').then((r) => r.data),
     staleTime: 5 * 60_000,
+    enabled: options?.enabled ?? true,
   });
 }
 
@@ -321,7 +337,8 @@ export interface JoinWaitlistResult {
 
 /// Join the FIFO waitlist for a full class slot. Returns the entry + the
 /// user's 1-indexed position. Auto-promotion happens server-side when a
-/// seat opens.
+/// seat opens. **Consumes 1 credit on join** (refunded on leave / studio
+/// cancel / class start without promotion).
 export function useJoinWaitlist() {
   const qc = useQueryClient();
   return useMutation({
@@ -331,6 +348,112 @@ export function useJoinWaitlist() {
         .then((r) => r.data),
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['seat-map', data.classSlotId] });
+      qc.invalidateQueries({ queryKey: ['my-waitlists'] });
+      qc.invalidateQueries({ queryKey: ['credit-packs'] });
+    },
+  });
+}
+
+export function useLeaveWaitlist() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (slotId: string) =>
+      api.delete<void>(`/class-slots/${slotId}/waitlist`).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-waitlists'] });
+      qc.invalidateQueries({ queryKey: ['credit-packs'] });
+    },
+  });
+}
+
+export interface MyWaitlist {
+  id: string;
+  classSlotId: string;
+  joinedAt: string;
+  position: number;
+  slot: {
+    id: string;
+    startsAt: string;
+    unit: { id: string; name: string; slug: string };
+    classKind: {
+      id: string;
+      name: string;
+      colorToken: string;
+    } | null;
+  };
+}
+
+/// Pending waitlists the user is currently on. Drives the "você está na
+/// fila" state on `/reservar` and the dashboard. Refetches every minute
+/// so the position decreases as people ahead get promoted.
+export function useMyWaitlists() {
+  return useQuery({
+    queryKey: ['my-waitlists'],
+    queryFn: () => api.get<MyWaitlist[]>('/me/waitlists').then((r) => r.data),
+    refetchInterval: 60_000,
+    staleTime: 30_000,
+  });
+}
+
+// ----------------------------------------------------------------------
+// 2026-05 — pack transfer + share endpoints
+// ----------------------------------------------------------------------
+
+export function useTransferPackCredits() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      packId,
+      toUserId,
+      count,
+    }: {
+      packId: string;
+      toUserId: string;
+      count: number;
+    }) =>
+      api
+        .post(`/credit-packs/${packId}/transfer`, { toUserId, count })
+        .then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['credit-packs'] });
+    },
+  });
+}
+
+export function useAddPackCoOwners() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      packId,
+      friendUserIds,
+    }: {
+      packId: string;
+      friendUserIds: string[];
+    }) =>
+      api
+        .post(`/credit-packs/${packId}/co-owners`, { friendUserIds })
+        .then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['credit-packs'] });
+    },
+  });
+}
+
+export function useRemovePackCoOwner() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({
+      packId,
+      coOwnerUserId,
+    }: {
+      packId: string;
+      coOwnerUserId: string;
+    }) =>
+      api
+        .delete(`/credit-packs/${packId}/co-owners/${coOwnerUserId}`)
+        .then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['credit-packs'] });
     },
   });
 }

@@ -8,10 +8,39 @@ import { useAuthStore } from '@/stores/auth';
 const RAW_BASE = import.meta.env.VITE_API_BASE_URL?.trim();
 const BASE_URL = RAW_BASE && RAW_BASE.length > 0 ? RAW_BASE : '/api';
 
+/// Returns the resolved API base URL — exposed so non-axios callers (e.g.
+/// raw `fetch` for multipart uploads where the instance default
+/// `Content-Type: application/json` would fight the multipart boundary) can
+/// build URLs that match what the axios instance hits.
+export function apiBaseUrl(): string {
+  return BASE_URL;
+}
+
 export const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 });
+
+/// Resolves a static-asset path returned by the API (e.g. `/uploads/...`) to
+/// a fully-qualified URL.
+/// - In dev (`/api` base) → returns the path as-is; Vite's `/uploads` proxy
+///   forwards to the backend.
+/// - In prod (full base URL like `https://bikebeach-api-production.up.railway.app`)
+///   → strips the `/api` segment if present and prefixes the asset path with
+///   the API origin so the browser can fetch it directly.
+export function assetUrl(relativePath: string | null | undefined): string | null {
+  if (!relativePath) return null;
+  if (/^https?:\/\//i.test(relativePath)) return relativePath;
+  // Local dev — Vite proxies /uploads transparently.
+  if (BASE_URL === '/api') return relativePath;
+  // Prod — use the API origin (without the `/api` suffix if it's there).
+  try {
+    const url = new URL(BASE_URL);
+    return `${url.origin}${relativePath}`;
+  } catch {
+    return relativePath;
+  }
+}
 
 let refreshPromise: Promise<string> | null = null;
 

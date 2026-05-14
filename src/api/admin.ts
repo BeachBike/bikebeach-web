@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { api } from './client';
+import { useAuthStore } from '@/stores/auth';
+import { api, apiBaseUrl } from './client';
 
 // ============================================================================
 // Types
@@ -22,12 +23,15 @@ export interface AdminPlan extends DiscountCampaignFields {
 
 export interface AdminPackOffer extends DiscountCampaignFields {
   id: string;
-  unitId: string;
   classes: number;
   priceCents: number;
   expirationDays: number;
   isActive: boolean;
   displayOrder: number;
+  /// 2026-05 — admin flags that gate the transfer/share UI on the user side.
+  isTransferable: boolean;
+  /// 0 = não compartilhável; > 0 = nº máximo de amigos co-donos do pack.
+  maxSharedUsers: number;
 }
 
 export interface AdminBike {
@@ -106,6 +110,9 @@ export interface AdminStaff {
   isActive: boolean;
   mustChangePassword: boolean;
   bio: string | null;
+  /// Relative URL to the instructor's portrait — produced by
+  /// `@imgly/background-removal` at upload time. Null = no portrait.
+  photoUrl: string | null;
   /// Carro-chefe (C1 / item 15.3). Null until admin picks one.
   primaryClassKindId: string | null;
   primaryClassKind: StaffClassKind | null;
@@ -307,11 +314,12 @@ export function useCreatePackOffer() {
   const inv = useInvalidate();
   return useMutation({
     mutationFn: (payload: {
-      unitId: string;
       classes: number;
       priceCents: number;
       expirationDays: number;
       displayOrder?: number;
+      isTransferable?: boolean;
+      maxSharedUsers?: number;
       discountPercent?: number;
       discountStartsAt?: string;
       discountEndsAt?: string;
@@ -333,6 +341,8 @@ export function useUpdatePackOffer() {
       priceCents?: number;
       expirationDays?: number;
       displayOrder?: number;
+      isTransferable?: boolean;
+      maxSharedUsers?: number;
       discountPercent?: number | null;
       discountStartsAt?: string | null;
       discountEndsAt?: string | null;
@@ -565,6 +575,61 @@ export function useUpdateStaff() {
         .patch<AdminStaff>(`/users/staff/${id}`, rest)
         .then((r) => r.data);
     },
+    onSuccess: () => {
+      inv.staff();
+    },
+  });
+}
+
+/// Upload (or replace) the staff member's portrait. The frontend strips the
+/// background to a transparent PNG via `@imgly/background-removal` before
+/// calling this — backend rejects non-PNG payloads.
+///
+/// Uses native `fetch` instead of the axios instance because the instance
+/// defaults `Content-Type: application/json` which fights with the multipart
+/// boundary the browser needs to set. With raw fetch the browser sees a
+/// FormData body and correctly emits `multipart/form-data; boundary=…`.
+export function useUploadStaffPhoto() {
+  const inv = useInvalidate();
+  return useMutation({
+    mutationFn: async ({
+      id,
+      blob,
+      mimeType,
+    }: {
+      id: string;
+      blob: Blob;
+      /// Either `'image/png'` (background-removed via @imgly) or
+      /// `'image/jpeg'` (raw photo, "subir como está" path).
+      mimeType: 'image/png' | 'image/jpeg';
+    }) => {
+      const form = new FormData();
+      const ext = mimeType === 'image/jpeg' ? 'jpg' : 'png';
+      const file = new File([blob], `${id}.${ext}`, { type: mimeType });
+      form.append('photo', file);
+      const token = useAuthStore.getState().accessToken;
+      const res = await fetch(`${apiBaseUrl()}/users/staff/${id}/photo`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        body: form,
+      });
+      if (!res.ok) {
+        const text = await res.text().catch(() => '');
+        throw new Error(`Upload falhou (${res.status}): ${text || res.statusText}`);
+      }
+      return (await res.json()) as AdminStaff;
+    },
+    onSuccess: () => {
+      inv.staff();
+    },
+  });
+}
+
+export function useDeleteStaffPhoto() {
+  const inv = useInvalidate();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.delete<AdminStaff>(`/users/staff/${id}/photo`).then((r) => r.data),
     onSuccess: () => {
       inv.staff();
     },

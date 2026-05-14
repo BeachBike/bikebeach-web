@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAdminUnits } from '@/api/admin';
 import { useAuthStore } from '@/stores/auth';
 import {
@@ -24,6 +24,11 @@ export function AdminRoute() {
   // alive while the persisted choice is still loading.
   const unitId = useResolvedArenaId(knownIds);
   const [activeTab, setActiveTab] = useState<AdminTabId>('vision');
+
+  // Snap to top on tab switch — same UX as a real navigation.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [activeTab]);
 
   if (!user || user.role !== 'ADMIN') {
     return (

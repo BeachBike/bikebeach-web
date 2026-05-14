@@ -1,4 +1,5 @@
 import { Link } from 'react-router';
+import { ArenaPicker } from '@/components/common/arena-picker';
 import { useLogout } from '@/hooks/useLogout';
 import type { Me } from '@/api/me';
 
@@ -68,6 +69,12 @@ export function ProfessorTopBar({
         </nav>
 
         <div className="flex items-center gap-2.5">
+          {/* Arena picker — for INSTRUCTORs assigned to multiple arenas the
+              picker shows only their assigned arenas (no "todas" option) so
+              they can switch between them. ArenaGuard ensures the store
+              never sits on `'all'` for INSTRUCTOR; the picker just exposes
+              the toggle. */}
+          <ArenaPicker variant="nav" />
           <div className="hidden flex-col items-end leading-none lg:flex">
             <span className="text-[13px] font-semibold lowercase">
               {me?.name?.toLowerCase() ?? '—'}

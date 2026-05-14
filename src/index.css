@@ -181,6 +181,40 @@
   }
 }
 
+/* Reservar step ceremonies — port from the Claude Designer prototype.
+   `.fadeup` is the step-3 entrance (mirrors the step-2 transition).
+   `pulseSel` powers the success checkmark glow; same easing curve as
+   the `.fadeup` so the two read as part of the same gesture. */
+@keyframes fadeup {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.fadeup {
+  animation: fadeup 0.55s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes pulseSel {
+  0% {
+    box-shadow: 0 30px 60px -20px rgba(216, 93, 52, 0.5),
+      0 0 0 0 rgba(242, 166, 90, 0.55);
+  }
+  70% {
+    box-shadow: 0 30px 60px -20px rgba(216, 93, 52, 0.5),
+      0 0 0 28px rgba(242, 166, 90, 0);
+  }
+  100% {
+    box-shadow: 0 30px 60px -20px rgba(216, 93, 52, 0.5),
+      0 0 0 0 rgba(242, 166, 90, 0);
+  }
+}
+
 /* Rain + lightning for the live emergency-cancel modal. */
 @keyframes rain {
   0% {

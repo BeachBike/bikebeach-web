@@ -1,8 +1,17 @@
 import { useQuery } from '@tanstack/react-query';
+import { ALL_ARENAS, type ArenaSelection, useArenaStore } from '@/stores/arena';
 import { api } from './client';
 
 /// All endpoints in this file are public (don't require auth) — they feed
 /// the marketing landing page. Auth-only endpoints live elsewhere.
+
+/// Translates the global arena selection (`'all'` sentinel or a real id) into
+/// the value to send as `unitId` query string. `undefined` means "omit the
+/// param", which the backend interprets as "every active arena".
+function unitIdParam(selection: ArenaSelection | undefined): string | undefined {
+  if (!selection || selection === ALL_ARENAS) return undefined;
+  return selection;
+}
 
 export interface PublicUnit {
   id: string;
@@ -45,7 +54,11 @@ export interface PublicClassSlot {
   instructorId: string;
   classKindId: string | null;
   classKind: PublicClassKind | null;
-  instructor: { id: string; name: string };
+  instructor: { id: string; name: string; photoUrl: string | null };
+  /// 2026-05 — surfaced by the backend so the FE can render a per-card arena
+  /// badge when the user is in "todas as arenas" mode. Always present, even
+  /// when filtering by a single unit (consumers can ignore it then).
+  unit: { id: string; slug: string; name: string };
   title: string | null;
   startsAt: string;
   durationMinutes: number;
@@ -57,12 +70,14 @@ export interface PublicClassSlot {
 
 export interface PublicPackOffer {
   id: string;
-  unitId: string;
   classes: number;
   priceCents: number;
   expirationDays: number;
   isActive: boolean;
   displayOrder: number;
+  /// 2026-05 — admin flags driving the post-purchase transfer/share flow.
+  isTransferable: boolean;
+  maxSharedUsers: number;
   /// C3 — optional time-windowed discount campaign. The 3 fields are
   /// always returned but may be `null` when no campaign is configured.
   discountPercent: number | null;
@@ -87,10 +102,32 @@ export function useDefaultUnit() {
   return { ...q, unit: q.data?.[0] };
 }
 
+/// Resolves the global arena selection (from `useArenaStore`) into a concrete
+/// payload consumers can render. `isAll` is true for the "todas as arenas"
+/// sentinel; in that case `unit` falls back to the first active arena so
+/// single-arena widgets (the "onde fica" section, hero stats) still have
+/// something to render. Components that genuinely care about "all" should
+/// branch on `isAll`.
+export function useEffectiveArena() {
+  const selection = useArenaStore((s) => s.selectedArenaId);
+  const q = useUnits();
+  const units = q.data;
+  const isAll = selection === ALL_ARENAS;
+  const unit =
+    units &&
+    (isAll
+      ? units.find((u) => u.isActive) ?? units[0]
+      : units.find((u) => u.id === selection) ?? units.find((u) => u.isActive));
+  return { ...q, selection, unit, isAll };
+}
+
 export interface FeaturedInstructor {
   id: string;
   name: string;
   bio: string | null;
+  /// Relative URL like `/uploads/instructors/<userId>.png?v=…`. Null →
+  /// frontend renders the deterministic-tone fallback portrait.
+  photoUrl: string | null;
   primaryClassKind: {
     id: string;
     slug: string;
@@ -105,19 +142,22 @@ export interface FeaturedInstructor {
   } | null;
 }
 
-/// Top-N active instructors of the unit, public — feeds the home "galera
-/// que conduz o pedal" section (D2 / item 2).
+/// Top-N active instructors, public — feeds the home "galera que conduz o
+/// pedal" section (D2 / item 2). When `arena` is `'all'` (or the sentinel)
+/// hits the special `/units/all/featured-instructors` route the backend
+/// recognises and aggregates across every active arena.
 export function useFeaturedInstructors(
-  unitId: string | undefined,
+  arena: ArenaSelection | undefined,
   limit = 4,
 ) {
+  const targetId = arena ?? ALL_ARENAS;
   return useQuery({
-    queryKey: ['featured-instructors', unitId, limit],
-    enabled: !!unitId,
+    queryKey: ['featured-instructors', targetId, limit],
+    enabled: !!targetId,
     queryFn: () =>
       api
         .get<FeaturedInstructor[]>(
-          `/units/${unitId}/featured-instructors`,
+          `/units/${targetId}/featured-instructors`,
           { params: { limit } },
         )
         .then((r) => r.data),
@@ -125,7 +165,10 @@ export function useFeaturedInstructors(
   });
 }
 
-export function useTodayClassSlots(unitId: string | undefined, dateOffset = 0) {
+export function useTodayClassSlots(
+  arena: ArenaSelection | undefined,
+  dateOffset = 0,
+) {
   const day = new Date();
   day.setDate(day.getDate() + dateOffset);
   day.setHours(0, 0, 0, 0);
@@ -133,10 +176,10 @@ export function useTodayClassSlots(unitId: string | undefined, dateOffset = 0) {
   const end = new Date(day);
   end.setHours(23, 59, 59, 999);
   const to = end.toISOString();
+  const unitId = unitIdParam(arena);
 
   return useQuery({
-    queryKey: ['class-slots', unitId, from, to],
-    enabled: !!unitId,
+    queryKey: ['class-slots', arena ?? ALL_ARENAS, from, to],
     queryFn: () =>
       api
         .get<PublicClassSlot[]>('/class-slots', {
@@ -147,13 +190,22 @@ export function useTodayClassSlots(unitId: string | undefined, dateOffset = 0) {
   });
 }
 
-export function usePackOffers(unitId: string | undefined) {
+export interface PublicPackOfferWithUnit extends PublicPackOffer {
+  /// Surfaced when listing across "todas as arenas" so the FE can render an
+  /// arena chip on each card. When the user is filtering by a single arena
+  /// it's still present but the FE can ignore it.
+  unit: { id: string; slug: string; name: string };
+}
+
+export function usePackOffers(arena: ArenaSelection | undefined) {
+  const unitId = unitIdParam(arena);
   return useQuery({
-    queryKey: ['pack-offers', unitId],
-    enabled: !!unitId,
+    queryKey: ['pack-offers', arena ?? ALL_ARENAS],
     queryFn: () =>
       api
-        .get<PublicPackOffer[]>('/pack-offers', { params: { unitId } })
+        .get<PublicPackOfferWithUnit[]>('/pack-offers', {
+          params: { unitId },
+        })
         .then((r) => r.data),
     staleTime: STALE_5_MIN,
   });
@@ -170,9 +222,12 @@ export interface PublicBike {
 export interface SeatMap {
   slot: PublicClassSlot;
   /// Layout bounds for the unit's arena. Used by the bike picker to render
-  /// an adaptive grid instead of hardcoding 4×8.
+  /// an adaptive grid instead of hardcoding 4×8. `slug` and `name` are also
+  /// surfaced so the confirm/success steps can label the arena.
   unit: {
     id: string;
+    slug: string;
+    name: string;
     maxRows: number;
     maxCols: number;
   };
@@ -197,15 +252,18 @@ export function useSeatMap(slotId: string | undefined) {
   });
 }
 
-/// 7-day class slot listing for the reservar flow's day picker.
+/// 7-day class slot listing for the reservar flow's day picker. Accepts the
+/// `'all'` sentinel — backend returns slots across every active arena and the
+/// FE shows the per-card arena badge.
 export function useClassSlotsRange(
-  unitId: string | undefined,
+  arena: ArenaSelection | undefined,
   fromIso: string | undefined,
   toIso: string | undefined,
 ) {
+  const unitId = unitIdParam(arena);
   return useQuery({
-    queryKey: ['class-slots-range', unitId, fromIso, toIso],
-    enabled: !!unitId && !!fromIso && !!toIso,
+    queryKey: ['class-slots-range', arena ?? ALL_ARENAS, fromIso, toIso],
+    enabled: !!fromIso && !!toIso,
     queryFn: () =>
       api
         .get<PublicClassSlot[]>('/class-slots', {

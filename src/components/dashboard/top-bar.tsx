@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router';
+import { ArenaPicker } from '@/components/common/arena-picker';
 import { useLogout } from '@/hooks/useLogout';
 import { Logo } from '@/components/brand/logo';
 import { firstName, initials } from '@/lib/format';
@@ -80,6 +81,10 @@ export function TopBar({ tab, onTabChange, user }: Props) {
         </nav>
 
         <div className="relative flex items-center gap-2.5" ref={menuRef}>
+          {/* Arena selector — same store as the public landing's picker, so
+              the user sees one consistent context. Without this here the
+              landing's selection silently drives the dashboard data. */}
+          <ArenaPicker variant="nav" />
           <Link
             to="/reservar"
             className="hidden items-center gap-2 rounded-full bg-clay px-4 py-2.5 text-sm font-semibold text-cream transition-colors hover:bg-clay-d md:inline-flex"

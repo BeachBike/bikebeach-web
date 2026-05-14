@@ -1,35 +1,96 @@
+import type { ReactNode } from 'react';
 import { Link } from 'react-router';
 import { useDefaultUnit } from '@/api/public';
 import { Logo } from '@/components/brand/logo';
 
+export type AuthMode = 'login' | 'cadastro' | 'recovery';
+
 interface Props {
-  mode: 'login' | 'cadastro';
+  mode: AuthMode;
 }
 
+const COPY: Record<
+  AuthMode,
+  {
+    bg: string;
+    gradient: string;
+    italicTone?: string;
+    headline: ReactNode;
+    sub: string;
+  }
+> = {
+  login: {
+    bg: 'var(--color-clay)',
+    gradient:
+      'radial-gradient(circle at 30% 30%, var(--color-sun) 0%, var(--color-clay-d) 60%, transparent 80%)',
+    headline: (
+      <>
+        de volta ao
+        <br />
+        <span className="font-normal italic">pedal</span>.
+      </>
+    ),
+    sub: 'entra com seus dados, escolhe o horário e a bike. a gente cuida do resto.',
+  },
+  cadastro: {
+    bg: 'var(--color-ink)',
+    gradient:
+      'radial-gradient(circle at 30% 30%, var(--color-sea) 0%, transparent 70%)',
+    italicTone: 'var(--color-sun)',
+    headline: (
+      <>
+        vem
+        <br />
+        pra{' '}
+        <span
+          className="font-normal italic"
+          style={{ color: 'var(--color-sun)' }}
+        >
+          areia
+        </span>
+        .
+      </>
+    ),
+    sub: 'cadastro em menos de um minuto. sua reserva fica garantida com a bike numerada.',
+  },
+  recovery: {
+    bg: 'var(--color-sea-d)',
+    gradient:
+      'radial-gradient(circle at 30% 30%, var(--color-sea) 0%, transparent 70%)',
+    headline: (
+      <>
+        senha
+        <br />
+        <span
+          className="font-normal italic"
+          style={{ color: 'var(--color-sun)' }}
+        >
+          de novo
+        </span>
+        .
+      </>
+    ),
+    sub: 'sem drama. a gente reseta, você pedala. seu acesso volta em menos de um minuto.',
+  },
+};
+
 /// Decorative brand panel that sits next to the form. Color + headline shift
-/// per mode (login = clay+sun warmth; cadastro = ink+sea calm).
+/// per mode (login = clay warmth; cadastro = ink calm; recovery = sea calm).
 export function ContaAside({ mode }: Props) {
   const { unit } = useDefaultUnit();
   const bikeCount = unit?.operationalBikeCount;
-
-  const isLogin = mode === 'login';
+  const c = COPY[mode];
 
   return (
     <aside
       className="relative flex min-h-[580px] flex-col justify-between overflow-hidden rounded-3xl px-9 py-10 text-cream"
-      style={{
-        background: isLogin ? 'var(--color-clay)' : 'var(--color-ink)',
-      }}
+      style={{ background: c.bg }}
     >
       {/* Sun / moon decorative gradient */}
       <div
         aria-hidden
         className="pointer-events-none absolute -right-24 -top-24 h-[340px] w-[340px] rounded-full opacity-85"
-        style={{
-          background: isLogin
-            ? 'radial-gradient(circle at 30% 30%, var(--color-sun) 0%, var(--color-clay-d) 60%, transparent 80%)'
-            : 'radial-gradient(circle at 30% 30%, var(--color-sea) 0%, transparent 70%)',
-        }}
+        style={{ background: c.gradient }}
       />
       {/* Subtle stripes overlay */}
       <div
@@ -50,31 +111,10 @@ export function ContaAside({ mode }: Props) {
           className="display font-medium"
           style={{ fontSize: 'clamp(58px,7vw,108px)', lineHeight: 0.88 }}
         >
-          {isLogin ? (
-            <>
-              de volta ao
-              <br />
-              <span className="font-normal italic">pedal</span>.
-            </>
-          ) : (
-            <>
-              vem
-              <br />
-              pra{' '}
-              <span
-                className="font-normal italic"
-                style={{ color: 'var(--color-sun)' }}
-              >
-                areia
-              </span>
-              .
-            </>
-          )}
+          {c.headline}
         </h2>
         <p className="mt-6 max-w-[380px] text-[17px] leading-relaxed opacity-90">
-          {isLogin
-            ? 'entra com seus dados, escolhe o horário e a bike. a gente cuida do resto.'
-            : 'cadastro em menos de um minuto. sua reserva fica garantida com a bike numerada.'}
+          {c.sub}
         </p>
       </div>
 

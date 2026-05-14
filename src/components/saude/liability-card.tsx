@@ -48,7 +48,7 @@ export function LiabilityCard({
       <ul className="mt-5 flex list-none flex-col gap-3">
         {TERMS.map((t) => (
           <li key={t} className="flex gap-3 text-[14px] leading-snug text-ink-2">
-            <span className="mt-0.5 flex-shrink-0 font-bold text-clay">✺</span>
+            <span className="mt-0.5 flex-shrink-0 font-bold text-clay">☼</span>
             {t}
           </li>
         ))}

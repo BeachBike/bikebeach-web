@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { type AdminClassSlot } from '@/api/admin';
 import { useMe } from '@/api/me';
 import {
@@ -18,6 +18,11 @@ import { DashboardTab } from '@/components/professor/tabs/dashboard';
 export function ProfessorRoute() {
   const meQ = useMe();
   const [tab, setTab] = useState<ProfessorTabId>('dashboard');
+
+  // Snap to top on tab switch.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [tab]);
   const [cancelTarget, setCancelTarget] = useState<AdminClassSlot | null>(null);
   const [liveTarget, setLiveTarget] = useState<AdminClassSlot | null>(null);
   const [checkInTarget, setCheckInTarget] = useState<AdminClassSlot | null>(

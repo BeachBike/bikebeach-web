@@ -20,6 +20,7 @@ import {
   initials,
   paymentMethodLabel,
 } from '@/lib/format';
+import { digitsOnly, maskCpf, maskPhone } from '@/lib/masks';
 import { useAuthStore } from '@/stores/auth';
 
 const ATTENDED: ReadonlyArray<Reservation['status']> = [
@@ -352,10 +353,18 @@ interface EditRowProps {
   /// Called when the user clicks save — should send the raw, validated
   /// value to the backend. Empty string clears the field.
   onSave: (field: EditableField, value: string) => Promise<void>;
-  /// Optional client-side validator. Returns an error message or null.
+  /// Optional client-side validator. Runs on the value after `extract`.
+  /// Returns an error message or null.
   validate?: (raw: string) => string | null;
-  /// Optional input transformer (e.g. strip non-digits for CPF).
-  sanitize?: (raw: string) => string;
+  /// Optional input transformer applied on every keystroke. Use to enforce
+  /// a visible mask while the user types (CPF "111.222.333-44", phone
+  /// "(48) 99999-1234"). Leave undefined for plain text fields.
+  displayMask?: (raw: string) => string;
+  /// Optional value-extractor — takes the masked string and returns the raw
+  /// value to send to the backend (e.g. strip non-digits from CPF). Defaults
+  /// to `v.trim()`, which is enough for fields whose visible value is the
+  /// payload value (email, phone).
+  extract?: (masked: string) => string;
   saving: boolean;
   errorMessage: string | null;
 }
@@ -371,26 +380,31 @@ function EditRow({
   field,
   onSave,
   validate,
-  sanitize,
+  displayMask,
+  extract,
   saving,
   errorMessage,
 }: EditRowProps) {
   const [editing, setEditing] = useState(false);
-  const [val, setVal] = useState(rawValue);
+  // Seed the input with the masked form so the cursor doesn't start on the
+  // raw digits. When `displayMask` is undefined this is identity.
+  const [val, setVal] = useState(() =>
+    displayMask ? displayMask(rawValue) : rawValue,
+  );
   const [localError, setLocalError] = useState<string | null>(null);
 
   const start = () => {
-    setVal(rawValue);
+    setVal(displayMask ? displayMask(rawValue) : rawValue);
     setLocalError(null);
     setEditing(true);
   };
   const cancel = () => {
-    setVal(rawValue);
+    setVal(displayMask ? displayMask(rawValue) : rawValue);
     setLocalError(null);
     setEditing(false);
   };
   const save = async () => {
-    const clean = sanitize ? sanitize(val) : val.trim();
+    const clean = extract ? extract(val) : val.trim();
     if (validate) {
       const err = validate(clean);
       if (err) {
@@ -429,7 +443,9 @@ function EditRow({
             value={val}
             autoFocus
             onChange={(e) =>
-              setVal(sanitize ? sanitize(e.target.value) : e.target.value)
+              setVal(
+                displayMask ? displayMask(e.target.value) : e.target.value,
+              )
             }
             onKeyDown={onKey}
             className={`w-full rounded-[10px] border-[1.5px] border-sand bg-cream px-3.5 py-2.5 text-base transition-colors focus:border-ink focus:bg-white focus:outline-none ${mono ? 'mono' : ''}`}
@@ -538,7 +554,7 @@ function DadosBlock({ me }: { me: MeShape }) {
           onSave={onSave}
           saving={updateM.isPending && activeField === 'email'}
           errorMessage={activeField === 'email' ? errorMessage : null}
-          sanitize={(v) => v.trim()}
+          extract={(v) => v.trim()}
           validate={(v) =>
             v.length === 0
               ? 'E-mail é obrigatório'
@@ -558,6 +574,9 @@ function DadosBlock({ me }: { me: MeShape }) {
           onSave={onSave}
           saving={updateM.isPending && activeField === 'phone'}
           errorMessage={activeField === 'phone' ? errorMessage : null}
+          displayMask={maskPhone}
+          // Backend's @Matches accepts the masked form, so we pass it as-is.
+          extract={(v) => v.trim()}
           validate={(v) =>
             v.length === 0 || /^\+?[0-9\s\-()]{8,20}$/.test(v)
               ? null
@@ -576,7 +595,10 @@ function DadosBlock({ me }: { me: MeShape }) {
           onSave={onSave}
           saving={updateM.isPending && activeField === 'cpf'}
           errorMessage={activeField === 'cpf' ? errorMessage : null}
-          sanitize={(v) => v.replace(/\D/g, '').slice(0, 11)}
+          // Show "111.222.333-44" while typing, but the backend wants 11
+          // raw digits — strip everything else before sending.
+          displayMask={maskCpf}
+          extract={(v) => digitsOnly(v).slice(0, 11)}
           validate={(v) =>
             v.length === 0 || v.length === 11
               ? null
@@ -973,7 +995,7 @@ function ConquistasBlock({ stats }: { stats: DerivedStats }) {
       {
         k: 'first',
         l: 'primeira pedalada',
-        icon: '✺',
+        icon: '☼',
         unlocked: a >= 1,
         desc: 'sua aula de estreia',
         hint: a === 0 ? 'reserve sua primeira aula' : undefined,

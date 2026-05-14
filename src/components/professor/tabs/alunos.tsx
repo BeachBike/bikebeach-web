@@ -5,6 +5,7 @@ import {
 } from '@/api/admin';
 import type { Me } from '@/api/me';
 import { useSlotRoster } from '@/api/professor';
+import { useArenaStore } from '@/stores/arena';
 
 interface AlunosTabProps {
   me: Me;
@@ -12,8 +13,9 @@ interface AlunosTabProps {
 
 export function AlunosTab({ me }: AlunosTabProps) {
   const range = upcomingRange();
+  const selectedArena = useArenaStore((s) => s.selectedArenaId);
   const slotsQ = useAdminClassSlots(
-    me.unitId ?? undefined,
+    selectedArena === 'all' ? me.unitId ?? undefined : selectedArena,
     range.from,
     range.to,
   );

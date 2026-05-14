@@ -28,18 +28,40 @@ export function PlanosTopBar({ user }: Props) {
             >
               reservar bike ↗
             </Link>
-            <button
-              type="button"
-              onClick={() => logout('/')}
-              className="flex items-center gap-2.5 rounded-full border-[1.5px] border-sand py-1.5 pl-3.5 pr-1.5"
-              title="sair"
+            <Link
+              to="/dashboard"
+              className="flex items-center gap-2.5 rounded-full border-[1.5px] border-sand py-1.5 pl-3.5 pr-1.5 transition-colors hover:bg-cream-2"
+              title="abrir painel"
             >
-              <span className="hidden text-[13px] font-semibold md:inline">
+              <span className="hidden text-[13px] font-semibold capitalize md:inline">
                 {firstName(user.name)}
               </span>
               <span className="grid h-[34px] w-[34px] place-items-center rounded-full bg-sea text-[13px] font-bold text-cream">
                 {initials(user.name)}
               </span>
+            </Link>
+            <button
+              type="button"
+              onClick={() => logout('/')}
+              className="grid size-9 place-items-center rounded-full text-ink-3 transition-colors hover:bg-cream-2 hover:text-clay-d"
+              title="sair"
+              aria-label="sair"
+            >
+              {/* small logout glyph — same shape as the dashboard top-bar */}
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <polyline points="16 17 21 12 16 7" />
+                <line x1="21" y1="12" x2="9" y2="12" />
+              </svg>
             </button>
           </div>
         ) : (

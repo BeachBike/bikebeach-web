@@ -21,6 +21,13 @@ export default defineConfig({
         changeOrigin: true,
         rewrite: (p) => p.replace(/^\/api/, ''),
       },
+      // Static assets (instructor portraits) live under /uploads on the
+      // backend. Proxy them too so the frontend can use the relative URL
+      // returned by the API as-is.
+      '/uploads': {
+        target: 'http://localhost:3000',
+        changeOrigin: true,
+      },
     },
   },
 });

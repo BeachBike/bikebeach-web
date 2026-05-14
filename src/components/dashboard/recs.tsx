@@ -1,7 +1,12 @@
 import { Link } from 'react-router';
 import type { Reservation } from '@/api/me';
-import { useDefaultUnit, useTodayClassSlots } from '@/api/public';
+import { useTodayClassSlots } from '@/api/public';
+import {
+  InstructorPortrait,
+  toneFromColorToken,
+} from '@/components/common/instructor-portrait';
 import { firstName, formatHourMinute, intensityLabel } from '@/lib/format';
+import { ALL_ARENAS, useArenaStore } from '@/stores/arena';
 
 interface Props {
   reservations: Reservation[] | undefined;
@@ -13,8 +18,9 @@ type Tone = (typeof TONES)[number];
 /// Today's available classes the user hasn't reserved yet. Up to 3 cards in
 /// rotating tones. Hidden entirely when nothing's free.
 export function Recs({ reservations }: Props) {
-  const { unit } = useDefaultUnit();
-  const { data: slots } = useTodayClassSlots(unit?.id, 0);
+  const arena = useArenaStore((s) => s.selectedArenaId);
+  const isAll = arena === ALL_ARENAS;
+  const { data: slots } = useTodayClassSlots(arena, 0);
 
   const reservedSlotIds = new Set(
     (reservations ?? [])
@@ -77,10 +83,23 @@ export function Recs({ reservations }: Props) {
                 </div>
               </div>
               <div>
-                <div className="text-sm font-semibold opacity-85">
-                  com {firstName(s.instructor.name)} ·{' '}
-                  {intensityLabel(s.classKind?.intensity)}
+                <div className="flex items-center gap-2 text-sm font-semibold opacity-90">
+                  <InstructorPortrait
+                    photoUrl={s.instructor.photoUrl}
+                    name={s.instructor.name}
+                    tone={toneFromColorToken(s.classKind?.colorToken)}
+                    size="xs"
+                  />
+                  <span>
+                    com {firstName(s.instructor.name)} ·{' '}
+                    {intensityLabel(s.classKind?.intensity)}
+                  </span>
                 </div>
+                {isAll && (
+                  <div className="mt-2 text-[11px] font-semibold uppercase tracking-wider opacity-80">
+                  {s.unit.name.toLowerCase()}
+                  </div>
+                )}
                 <div className="mt-3.5 flex items-center justify-between">
                   <span className="text-[13px] font-semibold">
                     {s.freeSpots} bike{s.freeSpots === 1 ? '' : 's'} livre

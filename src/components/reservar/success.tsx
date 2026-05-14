@@ -40,7 +40,8 @@ export function ReservationSuccess({ seatMap, bike, editMode }: Props) {
       </div>
       <p className="mt-3.5 max-w-[420px] text-base text-ink-2">
         {titulo} · {dia} · {formatHourMinute(slot.startsAt)} · bike{' '}
-        <b>{bike.label}</b>. chega 10 min antes.
+        <b>{bike.label}</b> · arena <b>{slot.unit.name.toLowerCase()}</b>.
+        chega 10 min antes.
       </p>
       <p className="mt-6 text-[13px] text-ink-3">
         levando você de volta ao painel…

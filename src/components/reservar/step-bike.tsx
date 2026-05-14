@@ -6,6 +6,10 @@ import type {
   SeatMap,
 } from '@/api/public';
 import { FriendBubble } from '@/components/common';
+import {
+  InstructorPortrait,
+  toneFromColorToken,
+} from '@/components/common/instructor-portrait';
 import { firstName } from '@/lib/format';
 
 interface Props {
@@ -274,13 +278,19 @@ function Arena({
         >
           <span className="w-6 flex-shrink-0" />
           <div
-            className="flex flex-1 items-center justify-center gap-2.5 rounded-[12px] px-4 py-3 text-cream"
+            className="flex flex-1 items-center justify-center gap-3 rounded-[12px] px-4 py-3 text-cream"
             style={{
               background: profBg,
               boxShadow: '0 10px 24px -12px rgba(28,30,38,.35)',
               cursor: 'not-allowed',
             }}
           >
+            <InstructorPortrait
+              photoUrl={seatMap.slot.instructor.photoUrl}
+              name={seatMap.slot.instructor.name}
+              tone={toneFromColorToken(kindColor)}
+              size="sm"
+            />
             <span className="text-[10px] font-bold uppercase tracking-widest opacity-80">
               instrutor
             </span>

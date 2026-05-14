@@ -3,10 +3,11 @@ import { Link } from 'react-router';
 import {
   type PublicPackOffer,
   type PublicPlan,
-  useDefaultUnit,
+  useEffectiveArena,
   usePackOffers,
   usePlans,
 } from '@/api/public';
+import { useArenaStore } from '@/stores/arena';
 import { PIX_DISCOUNT_PERCENT } from '@/lib/constants';
 import { resolveDiscount, shortDate } from '@/lib/discount';
 import { formatCents } from '@/lib/format';
@@ -17,6 +18,11 @@ interface CardData {
   /// Display heading (e.g. "Avulso", "Pacote 10", "Mensal Ilimitado").
   title: string;
   priceCents: number;
+  /// Per-class price after discount (cents). When present, this becomes
+  /// the hero number on the card and `priceCents` slides to a small
+  /// secondary line. Undefined for offers with no meaningful per-class
+  /// value (e.g. plano ilimitado).
+  pricePerClassCents?: number;
   /// Sub line under the price.
   sub: string;
   /// Bullet list inside the card.
@@ -37,8 +43,9 @@ interface CardData {
 /// Falls back gracefully when fewer items are configured.
 export function Planos() {
   const [ativo, setAtivo] = useState(1);
-  const { unit } = useDefaultUnit();
-  const { data: packsData } = usePackOffers(unit?.id);
+  const arena = useArenaStore((s) => s.selectedArenaId);
+  const { unit } = useEffectiveArena();
+  const { data: packsData } = usePackOffers(arena);
   const { data: plansData } = usePlans();
 
   // 2026-05 — PIX discount is a system-wide constant (was per-arena
@@ -179,23 +186,60 @@ export function Planos() {
                   </span>
                 )}
 
-                <div className="mt-7 flex items-start gap-1.5">
-                  <span className="mt-3.5 text-2xl font-semibold">R$</span>
-                  <span
-                    className="display font-medium"
-                    style={{ fontSize: 96, lineHeight: 0.9 }}
-                  >
-                    {formatCents(
-                      card.discount?.discountedCents ?? card.priceCents,
-                    )
-                      .replace('R$', '')
-                      .trim()}
-                  </span>
-                </div>
-                {card.discount && (
-                  <div className="mt-1 text-[13px] opacity-70 line-through">
-                    de {formatCents(card.priceCents)}
-                  </div>
+                {/* When `pricePerClassCents` is set, the hero is the
+                    per-class price (people compare packs by it). The pack
+                    total drops to the secondary line below. Plans without
+                    a meaningful per-class value (ilimitado) fall back to
+                    showing the total as the hero. */}
+                {card.pricePerClassCents != null ? (
+                  <>
+                    <div className="mt-7 flex items-start gap-1.5">
+                      <span className="mt-3.5 text-2xl font-semibold">R$</span>
+                      <span
+                        className="display font-medium"
+                        style={{ fontSize: 96, lineHeight: 0.9 }}
+                      >
+                        {formatCents(card.pricePerClassCents)
+                          .replace('R$', '')
+                          .trim()}
+                      </span>
+                      <span className="mt-3.5 text-sm font-semibold opacity-85">
+                        / aula
+                      </span>
+                    </div>
+                    <div className="mt-2 text-sm font-medium opacity-85">
+                      {formatCents(
+                        card.discount?.discountedCents ?? card.priceCents,
+                      )}{' '}
+                      no total
+                      {card.discount && (
+                        <span className="ml-2 opacity-70 line-through">
+                          de {formatCents(card.priceCents)}
+                        </span>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="mt-7 flex items-start gap-1.5">
+                      <span className="mt-3.5 text-2xl font-semibold">R$</span>
+                      <span
+                        className="display font-medium"
+                        style={{ fontSize: 96, lineHeight: 0.9 }}
+                      >
+                        {formatCents(
+                          card.discount?.discountedCents ?? card.priceCents,
+                        )
+                          .replace('R$', '')
+                          .trim()}
+                      </span>
+                    </div>
+                    {card.discount && (
+                      <div className="mt-1 text-[13px] opacity-70 line-through">
+                        de {formatCents(card.priceCents)}
+                      </div>
+                    )}
+                  </>
                 )}
                 <div className="mt-1.5 text-sm font-medium opacity-85">
                   {card.sub}
@@ -212,7 +256,7 @@ export function Planos() {
                         style={{ color: accent }}
                         aria-hidden
                       >
-                        ✺
+                        ☼
                       </span>
                       {b}
                     </li>
@@ -260,10 +304,12 @@ function packCard(
 ): CardData {
   const isAvulso = offer.classes === 1;
   const title = isAvulso ? 'Avulso' : `Pacote ${offer.classes}`;
-  const perClass = Math.round(offer.priceCents / offer.classes);
+  const resolved = resolveDiscount(offer.priceCents, offer);
+  const effectiveCents = resolved?.discountedCents ?? offer.priceCents;
+  const perClass = Math.round(effectiveCents / offer.classes);
   const sub = isAvulso
-    ? `1 aula  ·  vale por ${offer.expirationDays} dias`
-    : `${formatCents(perClass)} a aula  ·  ${offer.expirationDays} dias`;
+    ? `vale por ${offer.expirationDays} dias`
+    : `${offer.classes} aulas · vale por ${offer.expirationDays} dias`;
   const bullets: string[] = [
     isAvulso
       ? '1 aula a sua escolha'
@@ -274,12 +320,20 @@ function packCard(
       ? `${pixDiscountPercent}% off pagando no Pix`
       : 'Pagamento Pix, crédito ou débito',
   ];
-  const resolved = resolveDiscount(offer.priceCents, offer);
+  if (offer.isTransferable) {
+    bullets.push('Pode transferir créditos pra amigos');
+  }
+  if (offer.maxSharedUsers > 0) {
+    bullets.push(
+      `Compartilha com até ${offer.maxSharedUsers} amigo${offer.maxSharedUsers === 1 ? '' : 's'}`,
+    );
+  }
   return {
     key: `pack-${offer.id}`,
     kind: 'pack',
     title,
     priceCents: offer.priceCents,
+    pricePerClassCents: perClass,
     sub,
     bullets,
     discount: resolved
@@ -301,21 +355,27 @@ function planCard(
   destaque = false,
 ): CardData {
   const ilimitado = plan.monthlyCredits >= 999;
+  const resolved = resolveDiscount(plan.priceCents, plan);
+  const effectiveCents = resolved?.discountedCents ?? plan.priceCents;
   const sub = ilimitado
-    ? 'por mês  ·  ilimitado, todo mês'
-    : `${plan.monthlyCredits} aulas/mês  ·  cobrança mensal`;
+    ? 'por mês · ilimitado, todo mês'
+    : `${plan.monthlyCredits} aulas/mês · cobrança mensal`;
   const bullets = [
     ilimitado ? 'Aulas ilimitadas' : `${plan.monthlyCredits} aulas no mês`,
     'Reserva 7 dias antes',
     'Recibo no seu e-mail',
     'Cancele quando quiser',
   ];
-  const resolved = resolveDiscount(plan.priceCents, plan);
+  // Bounded plans get a per-class number too — drives the same UX as packs.
+  const pricePerClassCents = ilimitado
+    ? undefined
+    : Math.round(effectiveCents / plan.monthlyCredits);
   return {
     key: `plan-${plan.id}`,
     kind: 'plan',
     title: plan.name,
     priceCents: plan.priceCents,
+    pricePerClassCents,
     sub,
     bullets,
     discount: resolved

@@ -499,19 +499,22 @@ interface PackOfferFormDrawerProps {
 function PackOfferFormDrawer({
   open,
   onClose,
-  unitId,
   editing,
 }: PackOfferFormDrawerProps) {
   const createMut = useCreatePackOffer();
   const updateMut = useUpdatePackOffer();
-  // 2026-05 (item-14) — InputNumber + InputMoney pra trocar os inputs
-  // tipo "number" feios. Tudo armazenado já como number/cents.
   const [classes, setClasses] = useState<number | null>(editing?.classes ?? 5);
   const [priceCents, setPriceCents] = useState<number | null>(
     editing?.priceCents ?? null,
   );
   const [expirationDays, setExpirationDays] = useState<number | null>(
     editing?.expirationDays ?? 60,
+  );
+  const [isTransferable, setIsTransferable] = useState<boolean>(
+    editing?.isTransferable ?? false,
+  );
+  const [maxSharedUsers, setMaxSharedUsers] = useState<number | null>(
+    editing?.maxSharedUsers ?? 0,
   );
   const [discount, setDiscount] = useState<DiscountFieldsState>({
     percent: null,
@@ -524,6 +527,8 @@ function PackOfferFormDrawer({
     setClasses(editing?.classes ?? 5);
     setPriceCents(editing?.priceCents ?? null);
     setExpirationDays(editing?.expirationDays ?? 60);
+    setIsTransferable(editing?.isTransferable ?? false);
+    setMaxSharedUsers(editing?.maxSharedUsers ?? 0);
     setDiscount({
       percent: editing?.discountPercent ?? null,
       startsAt: editing?.discountStartsAt
@@ -543,13 +548,15 @@ function PackOfferFormDrawer({
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (!unitId) return setError('Unidade não selecionada.');
     if (classes == null || classes < 1)
       return setError('Quantidade de aulas precisa ser >= 1.');
     if (priceCents == null || priceCents < 1)
       return setError('Preço inválido.');
     if (expirationDays == null || expirationDays < 1)
       return setError('Validade precisa ser >= 1.');
+    const sharedN = maxSharedUsers ?? 0;
+    if (sharedN < 0 || sharedN > 10)
+      return setError('Compartilhamento aceita até 10 amigos.');
 
     const discountPayload = buildDiscountPayload(discount, !!editing);
     if (discountPayload === 'invalid') {
@@ -564,14 +571,17 @@ function PackOfferFormDrawer({
           id: editing.id,
           priceCents,
           expirationDays,
+          isTransferable,
+          maxSharedUsers: sharedN,
           ...discountPayload,
         });
       } else {
         await createMut.mutateAsync({
-          unitId,
           classes,
           priceCents,
           expirationDays,
+          isTransferable,
+          maxSharedUsers: sharedN,
           ...(discountPayload.discountPercent != null && {
             discountPercent: discountPayload.discountPercent,
             discountStartsAt: discountPayload.discountStartsAt!,
@@ -595,7 +605,7 @@ function PackOfferFormDrawer({
       subtitle={
         editing
           ? 'Não é possível mudar a quantidade — crie outro pacote para isso.'
-          : 'Cada quantidade é única por unidade.'
+          : 'Pacotes são globais — valem em qualquer arena.'
       }
       footer={
         <>
@@ -643,6 +653,33 @@ function PackOfferFormDrawer({
             onChange={setExpirationDays}
             min={1}
             max={720}
+          />
+        </FormField>
+
+        <FormField
+          label="transferível para amigos"
+          hint="quando ligado, o comprador pode mandar créditos avulsos pra amigos (precisa ter amizade aceita)."
+        >
+          <label className="inline-flex cursor-pointer items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={isTransferable}
+              onChange={(e) => setIsTransferable(e.target.checked)}
+              className="size-4 accent-clay"
+            />
+            <span>{isTransferable ? 'sim — transferível' : 'não — uso individual'}</span>
+          </label>
+        </FormField>
+
+        <FormField
+          label="compartilhar com até quantos amigos"
+          hint="0 desliga o compartilhamento. Acima de 0, o comprador escolhe N amigos no checkout e todos consomem do mesmo saldo."
+        >
+          <InputNumber
+            value={maxSharedUsers}
+            onChange={setMaxSharedUsers}
+            min={0}
+            max={10}
           />
         </FormField>
 

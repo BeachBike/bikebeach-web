@@ -1,15 +1,34 @@
-import { useDefaultUnit } from '@/api/public';
+import { useEffectiveArena } from '@/api/public';
 
 /// "Onde fica" section. Right side is a stylized illustrated map (no real
 /// map tile yet). Pin pulses; ocean lines are deterministic on render.
+///
+/// Reads the arena from the global picker (`useArenaStore`) — the address,
+/// description and "como chegar" link all reflect the user's current
+/// selection. When the picker is on "todas as arenas" we still need to show
+/// a single arena here, so it falls back to the first active one.
 const WAVE_OFFSETS = [0.62, 0.81, 0.55, 0.94, 0.7];
 
+const FALLBACK_DESCRIPTION =
+  'frota de bikes em deque de madeira reciclada, sombrite cor areia, som direcionado pra dentro.';
+
 export function Arena() {
-  const { unit } = useDefaultUnit();
+  const { unit, isAll } = useEffectiveArena();
   const bikeCount = unit?.operationalBikeCount;
   const fleetLine = bikeCount
     ? `${bikeCount} bikes em deque`
     : 'Frota completa em deque';
+
+  const description = unit?.description?.trim()
+    ? unit.description
+    : `${fleetLine} de madeira reciclada, sombrite cor areia, som direcionado pra dentro.`;
+
+  const address = unit?.address ?? '';
+  const mapUrl = address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+        address,
+      )}`
+    : '#';
 
   return (
     <section
@@ -34,13 +53,24 @@ export function Arena() {
             <br />
             no centro.
           </h2>
-          <p className="mt-7 max-w-[520px] text-lg leading-relaxed text-cream/80">
-            Entre os postos 4 e 5 da Praia Central de Balneário Camboriú,
-            na altura da Avenida Atlântica 1.500. {fleetLine} de madeira
-            reciclada, sombrite cor areia, som direcionado pra dentro.
+          {address && (
+            <p className="mt-7 text-sm font-semibold uppercase tracking-wider text-sun/90">
+              {address}
+            </p>
+          )}
+          <p className="mt-3 max-w-[520px] text-lg leading-relaxed text-cream/80">
+            {description || FALLBACK_DESCRIPTION}
           </p>
+          {isAll && (
+            <p className="mt-4 max-w-[520px] text-sm text-cream/60">
+              mostrando {unit?.name ?? 'a primeira arena'}. Troque a arena no
+              topo para ver outra localização.
+            </p>
+          )}
           <a
-            href="#"
+            href={mapUrl}
+            target="_blank"
+            rel="noopener noreferrer"
             className="mt-9 inline-flex items-center gap-2.5 rounded-full bg-clay px-7 py-4 text-[15px] font-semibold text-cream transition-colors hover:bg-clay-d"
           >
             Como chegar →
@@ -98,7 +128,7 @@ export function Arena() {
               className="display-tight rounded-full bg-cream px-2.5 py-1 text-base text-ink"
               style={{ fontSize: 16 }}
             >
-              bikebeach
+              {unit?.name?.toLowerCase() ?? 'bikebeach'}
             </div>
           </div>
           {/* Labels */}
@@ -112,7 +142,7 @@ export function Arena() {
             className="absolute text-xs font-semibold text-ink-2"
             style={{ bottom: '10%', right: '8%' }}
           >
-            av. atlântica
+            avenida
           </div>
         </div>
       </div>

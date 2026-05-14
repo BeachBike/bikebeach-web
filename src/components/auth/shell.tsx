@@ -1,9 +1,9 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
-import { ContaAside } from './aside';
+import { ContaAside, type AuthMode } from './aside';
 
 interface Props {
-  mode: 'login' | 'cadastro';
+  mode: AuthMode;
   children: ReactNode;
 }
 

@@ -5,6 +5,7 @@ import {
 } from '@/api/admin';
 import type { Me } from '@/api/me';
 import { Pagination, usePagination } from '@/components/common';
+import { useArenaStore } from '@/stores/arena';
 import { SlotList } from './dashboard';
 
 interface AgendaTabProps {
@@ -40,8 +41,9 @@ export function AgendaTab({
   onOpenCancel,
 }: AgendaTabProps) {
   const range = wideRange();
+  const selectedArena = useArenaStore((s) => s.selectedArenaId);
   const slotsQ = useAdminClassSlots(
-    me.unitId ?? undefined,
+    selectedArena === 'all' ? me.unitId ?? undefined : selectedArena,
     range.from,
     range.to,
   );

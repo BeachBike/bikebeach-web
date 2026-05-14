@@ -74,15 +74,16 @@ export function WaitlistModal({
                 <div className="max-w-[180px] text-right text-xs leading-snug opacity-85">
                   ~70% das listas viram vagas.
                   <br />
-                  Avisamos por e-mail se rolar.
+                  Se ninguém abrir, seu crédito volta automático.
                 </div>
               </div>
             </div>
           ) : (
-            <p className="mt-4 text-[13px] leading-relaxed text-ink-3">
-              ↳ nada é cobrado agora. Crédito só sai do pacote se a vaga
-              virar reserva sua.
-            </p>
+            <div className="mt-4 rounded-xl bg-sun/15 px-4 py-3 text-[13px] leading-relaxed text-[#735517]">
+              <b>1 crédito reservado.</b> ele só sai do seu pacote pra valer
+              se você for promovido pra reserva. Se a aula começar sem você
+              entrar, o crédito volta automático.
+            </div>
           )}
 
           {errorMessage && (

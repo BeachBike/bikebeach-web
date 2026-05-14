@@ -1,12 +1,13 @@
 import { useMemo } from 'react';
 import {
+  useMe,
   useMyCreditPacks,
   useMySubscriptions,
   type CreditPack,
   type MySubscription,
 } from '@/api/me';
 import {
-  useDefaultUnit,
+  useEffectiveArena,
   usePackOffers,
   usePlans,
   type PublicPackOffer,
@@ -15,6 +16,7 @@ import {
 import { PackCard } from '@/components/planos/pack-card';
 import { PlanCard } from '@/components/planos/plan-card';
 import { PlanosTopBar } from '@/components/planos/top-bar';
+import { useArenaStore } from '@/stores/arena';
 import { useAuthStore } from '@/stores/auth';
 
 /// Public /planos — works for logged-out (marketing-style) and logged-in
@@ -23,9 +25,13 @@ import { useAuthStore } from '@/stores/auth';
 export function PlanosRoute() {
   const session = useAuthStore((s) => s.user);
   const loggedIn = !!session;
+  // Auth store only carries id/email/role/unitId — fetch the real name
+  // from /users/me so the top-bar shows "olá, marina" instead of the email.
+  const meQ = useMe({ enabled: loggedIn });
 
-  const { unit, isLoading: unitLoading } = useDefaultUnit();
-  const offersQ = usePackOffers(unit?.id);
+  const arena = useArenaStore((s) => s.selectedArenaId);
+  const { unit, isLoading: unitLoading } = useEffectiveArena();
+  const offersQ = usePackOffers(arena);
   const plansQ = usePlans();
 
   // Logged-in extras — gated so we don't fire 401-bound requests when the
@@ -79,7 +85,10 @@ export function PlanosRoute() {
       <PlanosTopBar
         user={
           loggedIn
-            ? { name: session!.email, email: session!.email }
+            ? {
+                name: meQ.data?.name ?? session!.email,
+                email: session!.email,
+              }
             : null
         }
       />

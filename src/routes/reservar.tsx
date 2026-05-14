@@ -3,16 +3,18 @@ import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import { AxiosError } from 'axios';
 import { useFriendsAttendingBatch } from '@/api/friends';
 import {
+  useCancelReservation,
   useChangeBike,
   useCreateReservation,
   useJoinWaitlist,
+  useLeaveWaitlist,
   useMe,
   useMyCreditPacks,
   useMyReservations,
+  useMyWaitlists,
 } from '@/api/me';
 import {
   useClassSlotsRange,
-  useDefaultUnit,
   useSeatMap,
   type PublicBike,
   type PublicClassSlot,
@@ -26,6 +28,7 @@ import { StepsBreadcrumb } from '@/components/reservar/steps-breadcrumb';
 import { ReservationSuccess } from '@/components/reservar/success';
 import { ReservarTopBar } from '@/components/reservar/top-bar';
 import { WaitlistModal } from '@/components/reservar/waitlist-modal';
+import { useArenaStore } from '@/stores/arena';
 import { useAuthStore } from '@/stores/auth';
 
 type Step = -1 | 0 | 1 | 2 | 3; // -1 intro, 0 day, 1 bike, 2 confirm, 3 success
@@ -46,8 +49,12 @@ export function ReservarRoute() {
   // instead of POST /reservations.
   const editReservationId = params.get('edit');
 
+  // Edit mode (?edit=…) used to skip straight to step 1 (bike picker) which
+  // confused users who actually wanted to remarcar pra outro horário. Now
+  // it lands on step 0 with the original slot highlighted — clicking the
+  // same card flows to bike-swap, clicking another card prompts to remarcar.
   const [step, setStep] = useState<Step>(
-    preSelectedSlotId || editReservationId ? 1 : -1,
+    preSelectedSlotId ? 1 : editReservationId ? 0 : -1,
   );
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(
     preSelectedSlotId,
@@ -61,6 +68,11 @@ export function ReservarRoute() {
   );
   const [waitlistError, setWaitlistError] = useState<string | null>(null);
   const [confirmError, setConfirmError] = useState<string | null>(null);
+  // Target slot for the remarcar confirmation (edit mode + clicked another
+  // slot). Holding the slot pretty-prints the modal copy with the title +
+  // hour. Null = closed.
+  const [remarcarTarget, setRemarcarTarget] =
+    useState<PublicClassSlot | null>(null);
 
   // Day picker state — anchored to today.
   const days = useMemo(() => buildWeekDays(), []);
@@ -70,11 +82,12 @@ export function ReservarRoute() {
   const meQ = useMe();
   const packsQ = useMyCreditPacks();
   const reservationsQ = useMyReservations();
-  const { unit } = useDefaultUnit();
+  const myWaitlistsQ = useMyWaitlists();
+  const arena = useArenaStore((s) => s.selectedArenaId);
 
   const dayStart = `${selectedDay}T00:00:00.000Z`;
   const dayEnd = `${selectedDay}T23:59:59.999Z`;
-  const slotsQ = useClassSlotsRange(unit?.id, dayStart, dayEnd);
+  const slotsQ = useClassSlotsRange(arena, dayStart, dayEnd);
 
   // G1 — overlay friend bubbles on the day's slots. Always include the
   // currently-selected slotId too, so edit-mode lands (which can pre-load
@@ -91,6 +104,8 @@ export function ReservarRoute() {
   const createMutation = useCreateReservation();
   const changeBikeMutation = useChangeBike();
   const waitlistMutation = useJoinWaitlist();
+  const leaveWaitlistMutation = useLeaveWaitlist();
+  const cancelReservationMutation = useCancelReservation();
 
   // Track which slots the user already has reservations for. We expose both
   // the reservationId and a `canEditBike` flag derived from the 8h window so
@@ -114,6 +129,16 @@ export function ReservarRoute() {
     }
     return map;
   }, [myReservations]);
+
+  // Pending waitlist entries by slotId — drives the "você está na fila"
+  // state on each card in step-aula.
+  const myWaitlistBySlot = useMemo(() => {
+    const map = new Map<string, { entryId: string; position: number }>();
+    for (const w of myWaitlistsQ.data ?? []) {
+      map.set(w.classSlotId, { entryId: w.id, position: w.position });
+    }
+    return map;
+  }, [myWaitlistsQ.data]);
 
   // Resolve edit-mode metadata from the reservation list. When ?edit=<id>
   // is present we look up the reservation, derive the slotId, and seed
@@ -173,9 +198,26 @@ export function ReservarRoute() {
   const isEditMode = !!editingReservation;
 
   const onSelectSlot = (s: PublicClassSlot) => {
-    // If the user already has a reservation on this slot, route them
-    // through the edit-bike flow instead of starting a new one (which
-    // the backend would reject as a double-booking).
+    // Edit mode + same slot = the user wants to swap bike on the original
+    // reservation. Edit mode + DIFFERENT slot = the user wants to remarcar
+    // (cancel the original + book the new one). Without edit mode the rest
+    // of the function handles "no reservation yet" + waitlist flows.
+    if (isEditMode && editingReservation) {
+      if (s.id === editingReservation.classSlotId) {
+        // Same slot — proceed to bike picker (the canonical edit-bike flow).
+        setStep(1);
+        return;
+      }
+      if (s.freeSpots === 0) {
+        // Can't remarcar to a full slot.
+        return;
+      }
+      // Open the in-app confirm modal instead of a native browser alert.
+      setRemarcarTarget(s);
+      return;
+    }
+
+    // Default flow — no edit mode.
     const mine = myActiveBySlot.get(s.id);
     if (mine) {
       if (mine.canEditBike) {
@@ -201,12 +243,15 @@ export function ReservarRoute() {
   };
 
   const onBack = () => {
-    if (step === 0) setStep(-1);
-    else if (step === 1) {
-      if (isEditMode) {
-        navigate('/dashboard');
-        return;
-      }
+    if (step === 0) {
+      // In edit mode the intro doesn't apply — go straight back to the
+      // dashboard. Otherwise show the standard intro screen.
+      if (isEditMode) navigate('/dashboard');
+      else setStep(-1);
+    } else if (step === 1) {
+      // Edit mode: go back to the slot picker so the user can either
+      // re-pick the same slot (continue swapping bike) or click another
+      // card to remarcar.
       setSelectedBikeId(null);
       setStep(0);
     } else if (step === 2) {
@@ -325,8 +370,9 @@ export function ReservarRoute() {
 
             {isEditMode && (
               <div className="mt-4 rounded-2xl border-[1.5px] border-clay/40 bg-cream-2 px-5 py-4 text-[13px] leading-snug text-ink">
-                <b className="text-clay-d">trocar bike</b> · sua reserva fica,
-                só a bike muda. crédito não é cobrado de novo.
+                <b className="text-clay-d">editar reserva</b> · clique no
+                horário atual pra trocar a bike, ou em outro pra remarcar
+                (sua reserva atual será cancelada e o crédito devolvido).
               </div>
             )}
 
@@ -356,6 +402,23 @@ export function ReservarRoute() {
                   selectedSlotId={selectedSlotId ?? undefined}
                   onSelectSlot={onSelectSlot}
                   myReservedSlots={myReservedSlotsForList}
+                  myWaitlistBySlot={myWaitlistBySlot}
+                  onLeaveWaitlist={(slotId) => {
+                    if (
+                      window.confirm(
+                        'Sair da fila de espera dessa aula? Seu crédito volta pra carteira.',
+                      )
+                    ) {
+                      leaveWaitlistMutation.mutate(slotId);
+                    }
+                  }}
+                  onCancelReservation={(reservationId) => {
+                    cancelReservationMutation.mutate(reservationId);
+                  }}
+                  isLeavingWaitlist={leaveWaitlistMutation.isPending}
+                  isCancellingReservation={
+                    cancelReservationMutation.isPending
+                  }
                   friendsBySlot={friendsAttendingQ.data}
                 />
               )}

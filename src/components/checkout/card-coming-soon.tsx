@@ -29,15 +29,15 @@ export function CardComingSoon({ method }: Props) {
 
         <ul className="mt-5 flex flex-col gap-2.5 text-[13px] text-ink-2">
           <li className="flex gap-3">
-            <span className="font-bold text-clay">✺</span>
+            <span className="font-bold text-clay">☼</span>
             tokenização Asaas (PCI scope: zero pra gente)
           </li>
           <li className="flex gap-3">
-            <span className="font-bold text-clay">✺</span>
+            <span className="font-bold text-clay">☼</span>
             crédito até 6x · débito 1x
           </li>
           <li className="flex gap-3">
-            <span className="font-bold text-clay">✺</span>
+            <span className="font-bold text-clay">☼</span>
             sem juros até 3x
           </li>
         </ul>

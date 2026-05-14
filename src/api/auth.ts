@@ -43,4 +43,9 @@ export const authApi = {
       .post<{ emailSent: boolean; devToken?: string }>('/auth/forgot-password', { email })
       .then((r) => r.data);
   },
+  resetPassword(payload: { token: string; password: string }) {
+    return api
+      .post<void>('/auth/reset-password', payload)
+      .then((r) => r.data);
+  },
 };

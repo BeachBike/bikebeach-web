@@ -106,10 +106,18 @@ function ReservaRow({
   const hoursToClass =
     (new Date(slot.startsAt).getTime() - Date.now()) / 3_600_000;
   const canEditBike = hoursToClass >= 8;
+  // Promoted-from-waitlist reservations enjoy a 2h protected cancellation
+  // window (CLAUDE.md product rules). Standard reservations follow the 8h
+  // rule. Anything outside the applicable window means the user still can
+  // cancel but loses the credit.
+  const cancelWindowHours = promoted ? 2 : 8;
+  const cancelFree = hoursToClass >= cancelWindowHours;
 
   return (
     <div
-      className="grid grid-cols-1 items-center gap-3.5 rounded-2xl border border-sand bg-cream px-5 py-4 lg:grid-cols-[110px_1fr_130px_130px_minmax(140px,auto)_auto_100px]"
+      className={`grid grid-cols-1 items-center gap-3.5 rounded-2xl border bg-cream px-5 py-4 lg:grid-cols-[110px_1fr_140px_minmax(120px,auto)_auto] ${
+        canEditBike ? 'border-sand' : 'border-sun/60'
+      }`}
     >
       <div className="flex flex-col">
         <span
@@ -119,29 +127,25 @@ function ReservaRow({
           {relativeDayLabel(slot.startsAt)}
         </span>
         <span className="mt-0.5 text-[13px] text-ink-2">
-          {formatDayMonth(slot.startsAt)}
+          {formatDayMonth(slot.startsAt)} · {formatHourMinute(slot.startsAt)}
         </span>
       </div>
       <div className="flex flex-col">
-        <span className="text-[13px] font-semibold text-clay">
-          {formatHourMinute(slot.startsAt)}
-        </span>
         <span
-          className="display-tight mt-0.5"
-          style={{ fontSize: 24, lineHeight: 1.1 }}
+          className="display-tight"
+          style={{ fontSize: 22, lineHeight: 1.1 }}
         >
           {titulo}
         </span>
+        <span className="mt-1 text-[13px] text-ink-2">
+          com {firstName(slot.instructor.name)} · bike {r.bike.label}
+        </span>
       </div>
-      <span className="text-sm font-medium">
-        com {firstName(slot.instructor.name)}
-      </span>
-      <span className="w-fit rounded-full bg-cream-2 px-3 py-1.5 text-[13px] font-semibold">
-        bike {r.bike.label}
-      </span>
       <span
         className="text-xs font-bold uppercase tracking-wide"
-        style={{ color: promoted ? 'var(--color-sun)' : 'var(--color-sea)' }}
+        style={{
+          color: promoted ? 'var(--color-sun)' : 'var(--color-sea)',
+        }}
       >
         {promoted ? 'promovido' : 'confirmada'}
       </span>
@@ -153,15 +157,33 @@ function ReservaRow({
           trocar bike
         </Link>
       ) : (
-        <span aria-hidden />
+        // Single, quiet hint instead of a separate chip + sentence — keeps
+        // the desktop row scannable when most reservations are inside the
+        // 8h window.
+        <span className="text-[11px] leading-tight text-ink-3">
+          fora da janela de troca
+        </span>
       )}
       <button
         type="button"
         disabled={cancelling}
         onClick={() => onCancel(r)}
-        className="rounded-full px-3 py-2.5 text-[13px] font-semibold text-ink-2 transition-colors hover:bg-cream-2 hover:text-clay-d disabled:opacity-50"
+        className={`rounded-full px-3 py-2.5 text-[12px] font-bold transition-colors disabled:opacity-50 ${
+          cancelFree
+            ? 'text-ink-2 hover:bg-cream-2 hover:text-clay-d'
+            : 'bg-clay-d/10 text-clay-d hover:bg-clay-d hover:text-cream'
+        }`}
+        title={
+          cancelFree
+            ? 'Cancelar sem custo — crédito volta pra carteira.'
+            : 'Cancelar agora consome o crédito da reserva.'
+        }
       >
-        {cancelling ? 'cancelando…' : 'cancelar'}
+        {cancelling
+          ? 'cancelando…'
+          : cancelFree
+            ? 'cancelar'
+            : 'cancelar (perde crédito)'}
       </button>
     </div>
   );

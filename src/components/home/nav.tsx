@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router';
 import { Logo } from '@/components/brand/logo';
+import { ArenaPicker } from '@/components/common/arena-picker';
 import { useAuthStore } from '@/stores/auth';
 import { useRoleHome } from '@/hooks/useRoleHome';
 
@@ -53,6 +54,7 @@ export function Nav() {
       </div>
 
       <div className="flex items-center gap-2">
+        <ArenaPicker variant="nav" />
         {user && home ? (
           <Link
             to={home}

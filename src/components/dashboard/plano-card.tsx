@@ -1,8 +1,8 @@
 import { Link } from 'react-router';
 import { useState } from 'react';
-import type { CreditPack, MySubscription } from '@/api/me';
+import { useMe, type CreditPack, type MySubscription } from '@/api/me';
 import { ConfirmModal } from '@/components/common';
-import { daysUntil, formatFullDate } from '@/lib/format';
+import { daysUntil, firstName, formatFullDate } from '@/lib/format';
 
 interface Props {
   packs: CreditPack[] | undefined;
@@ -42,8 +42,11 @@ export function PlanoCard({
   const monthlyPack = activeSub
     ? activePacks.find((p) => p.source === 'SUBSCRIPTION_CYCLE')
     : undefined;
+  // Everything that isn't a subscription cycle is treated as a "pack" for
+  // display purposes — bought packs, admin grants, refunds, transfers from
+  // friends. Sorting by `totalCredits` desc keeps the chunkiest one first.
   const purchasePacks = activePacks
-    .filter((p) => p.source === 'PURCHASE_PACK')
+    .filter((p) => p.source !== 'SUBSCRIPTION_CYCLE')
     .sort((a, b) => b.totalCredits - a.totalCredits);
   const mainPurchasePack = purchasePacks[0];
 
@@ -258,6 +261,7 @@ function PackSection({
   pack: CreditPack;
   compact?: boolean;
 }) {
+  const meQ = useMe();
   const total = pack.totalCredits;
   const usadas = total - pack.remainingCredits;
   const pct = total > 0 ? (usadas / total) * 100 : 0;
@@ -269,11 +273,27 @@ function PackSection({
       : 'expirado'
     : 'sem expiração';
 
+  // Tag the pack so the user immediately knows what kind of pool they're
+  // looking at: presente recebido (TRANSFER), compartilhado (vc é dono +
+  // tem co-donos) ou co-dono (vc consome de um pacote de outra pessoa).
+  const myUserId = meQ.data?.id;
+  const isReceivedTransfer = pack.source === 'TRANSFER';
+  const isCoOwnerOnly = !!myUserId && pack.userId !== myUserId;
+  const coOwners = pack.coOwners ?? [];
+  const isSharedAsOwner =
+    !!myUserId && pack.userId === myUserId && coOwners.length > 0;
+
   if (compact) {
     return (
       <>
-        <div className="text-xs font-bold uppercase tracking-wide text-ink-2">
+        <div className="flex flex-wrap items-center gap-2 text-xs font-bold uppercase tracking-wide text-ink-2">
           + {titleLabel}
+          <PackOriginChip
+            isReceivedTransfer={isReceivedTransfer}
+            isCoOwnerOnly={isCoOwnerOnly}
+            isSharedAsOwner={isSharedAsOwner}
+            coOwners={coOwners}
+          />
         </div>
         <div className="mt-2 flex items-end justify-between">
           <span className="text-[13px] font-semibold text-ink-2">
@@ -303,8 +323,17 @@ function PackSection({
       >
         {titleLabel}
       </div>
-      <div className="mt-2 text-sm text-ink-2">
-        comprado em {formatFullDate(pack.createdAt)} · {expirySub}
+      <div className="mt-2 flex flex-wrap items-center gap-2">
+        <PackOriginChip
+          isReceivedTransfer={isReceivedTransfer}
+          isCoOwnerOnly={isCoOwnerOnly}
+          isSharedAsOwner={isSharedAsOwner}
+          coOwners={coOwners}
+        />
+        <span className="text-sm text-ink-2">
+          {isReceivedTransfer ? 'recebido' : 'comprado'} em{' '}
+          {formatFullDate(pack.createdAt)} · {expirySub}
+        </span>
       </div>
       <div className="mt-5">
         <div className="mb-2 flex items-end justify-between">
@@ -339,4 +368,69 @@ function PackSection({
       </div>
     </>
   );
+}
+
+/// Tiny chip that explains where the pack came from / how it's shared.
+/// Renders nothing for a vanilla solo pack (the user bought it and isn't
+/// sharing) — no need to add visual noise to the common case.
+function PackOriginChip({
+  isReceivedTransfer,
+  isCoOwnerOnly,
+  isSharedAsOwner,
+  coOwners,
+}: {
+  isReceivedTransfer: boolean;
+  isCoOwnerOnly: boolean;
+  isSharedAsOwner: boolean;
+  coOwners: NonNullable<CreditPack['coOwners']>;
+}) {
+  if (isReceivedTransfer) {
+    return (
+      <span
+        className="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider"
+        style={{
+          background: 'var(--color-sea)',
+          color: 'var(--color-cream)',
+        }}
+        title="Pacote presenteado por um amigo via transferência."
+      >
+        recebido
+      </span>
+    );
+  }
+  if (isCoOwnerOnly) {
+    return (
+      <span
+        className="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider"
+        style={{
+          background: 'var(--color-sun)',
+          color: 'var(--color-ink)',
+        }}
+        title="Você foi adicionada como co-dona desse pacote — consome do mesmo saldo."
+      >
+        co-dono
+      </span>
+    );
+  }
+  if (isSharedAsOwner) {
+    const sample = coOwners
+      .slice(0, 2)
+      .map((c) => firstName(c.user.name))
+      .join(', ');
+    const extra = coOwners.length > 2 ? ` +${coOwners.length - 2}` : '';
+    return (
+      <span
+        className="rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider"
+        style={{
+          background: 'var(--color-clay)',
+          color: 'var(--color-cream)',
+        }}
+        title={`Pacote compartilhado com ${coOwners.map((c) => c.user.name).join(', ')}.`}
+      >
+        compart. {sample}
+        {extra}
+      </span>
+    );
+  }
+  return null;
 }

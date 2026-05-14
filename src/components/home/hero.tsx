@@ -1,10 +1,10 @@
 import { Link } from 'react-router';
-import { useDefaultUnit } from '@/api/public';
+import { useEffectiveArena } from '@/api/public';
 import { useRoleHome } from '@/hooks/useRoleHome';
 import SpinningBcImg from '@/assets/SpinningBc.png';
 
 export function Hero() {
-  const { unit } = useDefaultUnit();
+  const { unit } = useEffectiveArena();
   const bikeCount = unit?.operationalBikeCount;
   const home = useRoleHome();
 

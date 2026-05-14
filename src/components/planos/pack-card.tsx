@@ -15,8 +15,10 @@ interface Props {
   highlighted: boolean;
 }
 
-/// Single pack offer card. Tone alternates clay/cream/ink/sand based on size
-/// so the page has visual rhythm even with N offers.
+/// Single pack offer card. The "preço por aula" is the hero number
+/// (people compare packs by per-class cost, not pack total). Total price
+/// sits below as the contextual line. Transferable / shareable badges
+/// expose the post-purchase perks an admin enabled on this pack.
 export function PackCard({
   offer,
   unit,
@@ -26,19 +28,17 @@ export function PackCard({
 }: Props) {
   const isAvulso = offer.classes === 1;
   const labelTitle = isAvulso ? 'Avulso' : `Pacote ${offer.classes}`;
-  const perClassCents = Math.round(offer.priceCents / offer.classes);
-  const sub = isAvulso
-    ? `1 aula  ·  vale por ${offer.expirationDays} dias`
-    : `${formatCents(perClassCents)} a aula  ·  vale por ${offer.expirationDays} dias`;
 
   // C3 — campaign discount (sazonal, time-windowed). Distinct from the
   // pixDiscount below (always-on, applied at PIX checkout).
   const campaign = resolveDiscount(offer.priceCents, offer);
   const effectivePriceCents = campaign?.discountedCents ?? offer.priceCents;
 
+  const perClassCents = Math.round(effectivePriceCents / offer.classes);
+  const totalLine = `${formatCents(effectivePriceCents)} no total · vale por ${offer.expirationDays} dias`;
+
   // 2026-05 — PIX discount is a system-wide constant. Compounds with
-  // the campaign discount: the campaign is applied first (above), then
-  // PIX % comes off the already-discounted price.
+  // the campaign discount.
   void unit; // unit param kept on the prop signature for backwards compat
   const pixDiscountPercent = PIX_DISCOUNT_PERCENT;
   const pixCents =
@@ -60,10 +60,22 @@ export function PackCard({
       ? `${pixDiscountPercent}% off pagando no Pix`
       : 'Pagamento Pix, crédito ou débito',
   ];
+  if (offer.isTransferable) {
+    bullets.push('Pode transferir créditos pra amigos');
+  }
+  if (offer.maxSharedUsers > 0) {
+    bullets.push(
+      `Compartilha com até ${offer.maxSharedUsers} amigo${offer.maxSharedUsers === 1 ? '' : 's'}`,
+    );
+  }
+
+  // The "1 pacote" badge gives the row a consistent identity across all
+  // sizes — same UX as the protótipo. Avulso uses "1 aula" instead.
+  const packBadge = isAvulso ? '1 aula' : '1 pacote';
 
   return (
     <article
-      className="relative flex min-h-[460px] flex-col rounded-[22px] p-7 transition-shadow"
+      className="relative flex min-h-[480px] flex-col rounded-[22px] p-7 transition-shadow"
       style={{
         background: isClay ? 'var(--color-clay)' : 'var(--color-cream-2)',
         color: isClay ? 'var(--color-cream)' : 'var(--color-ink)',
@@ -102,6 +114,50 @@ export function PackCard({
         {labelTitle}
       </div>
 
+      {/* "1 pacote" badge — visual rhythm + pre-loaded chip slot for
+          transferable / shareable badges below. */}
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        <span
+          className="display-tight rounded-full px-3 py-1 text-[12px] font-bold uppercase tracking-wide"
+          style={{
+            background: isClay
+              ? 'rgba(246,239,226,0.18)'
+              : 'var(--color-cream)',
+            color: isClay ? 'var(--color-cream)' : 'var(--color-ink)',
+          }}
+        >
+          {packBadge}
+        </span>
+        {offer.isTransferable && (
+          <span
+            className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider"
+            style={{
+              background: isClay
+                ? 'rgba(246,239,226,0.18)'
+                : 'var(--color-sea)',
+              color: 'var(--color-cream)',
+            }}
+            title="Transfere créditos pra amigos depois da compra"
+          >
+            transferível
+          </span>
+        )}
+        {offer.maxSharedUsers > 0 && (
+          <span
+            className="rounded-full px-3 py-1 text-[10px] font-bold uppercase tracking-wider"
+            style={{
+              background: isClay
+                ? 'rgba(246,239,226,0.18)'
+                : 'var(--color-sun)',
+              color: 'var(--color-ink)',
+            }}
+            title={`Compartilha com até ${offer.maxSharedUsers} amigo${offer.maxSharedUsers === 1 ? '' : 's'}`}
+          >
+            compart. até {offer.maxSharedUsers}
+          </span>
+        )}
+      </div>
+
       {campaign && (
         <span
           className="mt-3 inline-flex w-fit items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide"
@@ -116,21 +172,25 @@ export function PackCard({
         </span>
       )}
 
+      {/* Hero number — preço POR AULA. Total stays small below. */}
       <div className="mt-6 flex items-start gap-1.5">
         <span className="mt-3 text-2xl font-semibold">R$</span>
         <span
           className="display font-medium"
           style={{ fontSize: 88, lineHeight: 0.9 }}
         >
-          {formatCents(effectivePriceCents).replace('R$', '').trim()}
+          {formatCents(perClassCents).replace('R$', '').trim()}
         </span>
+        <span className="mt-3 text-sm font-semibold opacity-85">/ aula</span>
+      </div>
+      <div className="mt-1.5 text-[13px] font-medium opacity-90">
+        {totalLine}
       </div>
       {campaign && (
-        <div className="mt-1 text-[13px] opacity-70 line-through">
+        <div className="mt-1 text-[12px] opacity-70 line-through">
           de {formatCents(offer.priceCents)}
         </div>
       )}
-      <div className="mt-1 text-sm font-medium opacity-85">{sub}</div>
 
       {pixCents !== null && (
         <div className="mt-3 text-[13px] font-medium opacity-90">
@@ -146,7 +206,7 @@ export function PackCard({
               style={{ color: accent }}
               aria-hidden
             >
-              ✺
+              ☼
             </span>
             {b}
           </li>

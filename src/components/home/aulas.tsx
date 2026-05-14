@@ -1,11 +1,11 @@
 import { useState } from 'react';
 import { Link } from 'react-router';
 import {
-  useDefaultUnit,
   useTodayClassSlots,
   type PublicClassSlot,
 } from '@/api/public';
 import { useRoleHome } from '@/hooks/useRoleHome';
+import { ALL_ARENAS, useArenaStore } from '@/stores/arena';
 
 const DAYS = ['seg', 'ter', 'qua', 'qui', 'sex', 'sáb', 'dom'] as const;
 
@@ -35,8 +35,9 @@ export function Aulas() {
   const [day, setDay] = useState(today);
   const dateOffset = (day - today + 7) % 7; // always forward in the week
 
-  const { unit } = useDefaultUnit();
-  const { data: slots, isLoading } = useTodayClassSlots(unit?.id, dateOffset);
+  const arena = useArenaStore((s) => s.selectedArenaId);
+  const isAll = arena === ALL_ARENAS;
+  const { data: slots, isLoading } = useTodayClassSlots(arena, dateOffset);
 
   // D2 / item 3 — cap to 6 entries per day; the headline still mentions the
   // full count of the day so visitors know there's more.
@@ -100,7 +101,7 @@ export function Aulas() {
           </div>
         )}
         {visible.map((a) => (
-          <SlotRow key={a.id} slot={a} />
+          <SlotRow key={a.id} slot={a} showArena={isAll} />
         ))}
       </div>
 
@@ -118,7 +119,13 @@ export function Aulas() {
   );
 }
 
-function SlotRow({ slot }: { slot: PublicClassSlot }) {
+function SlotRow({
+  slot,
+  showArena,
+}: {
+  slot: PublicClassSlot;
+  showArena: boolean;
+}) {
   const [hover, setHover] = useState(false);
   const lotada = slot.freeSpots === 0;
   const titulo = slot.classKind?.name?.toLowerCase() ?? slot.title ?? 'aula';
@@ -146,7 +153,7 @@ function SlotRow({ slot }: { slot: PublicClassSlot }) {
         {formatHour(slot.startsAt)}
       </span>
       <span
-        className="display"
+        className="display flex flex-col gap-1"
         style={{
           fontSize: 30,
           lineHeight: 1,
@@ -154,6 +161,17 @@ function SlotRow({ slot }: { slot: PublicClassSlot }) {
         }}
       >
         {titulo}
+        {showArena && (
+          <span
+            className="inline-flex w-fit items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-semibold uppercase not-italic tracking-wider"
+            style={{
+              background: hover && !lotada ? 'rgba(255,255,255,0.15)' : 'var(--color-cream-2)',
+              color: hover && !lotada ? 'var(--color-cream)' : 'var(--color-ink-2)',
+            }}
+          >
+            {slot.unit.name.toLowerCase()}
+          </span>
+        )}
       </span>
       <span className="hidden text-sm font-medium lg:block">
         com {slot.instructor.name.split(' ')[0]}

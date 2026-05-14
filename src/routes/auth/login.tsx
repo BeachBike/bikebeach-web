@@ -1,6 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 import { useState, type FormEvent } from 'react';
-import { Link, useNavigate } from 'react-router';
+import { Link, useLocation, useNavigate } from 'react-router';
 import { authApi } from '@/api/auth';
 import {
   AuthInput,
@@ -21,6 +21,8 @@ interface LoginErrors {
 export function LoginRoute() {
   const setSession = useAuthStore((s) => s.setSession);
   const navigate = useNavigate();
+  const location = useLocation() as { state: { flash?: string } | null };
+  const flash = location.state?.flash;
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -115,6 +117,12 @@ export function LoginRoute() {
             esqueci a senha
           </Link>
         </div>
+
+        {flash && !errors.form && (
+          <div className="rounded-xl bg-sea/10 px-4 py-3 text-sm font-medium text-sea-d">
+            {flash}
+          </div>
+        )}
 
         {errors.form && (
           <div className="rounded-xl bg-clay-d/10 px-4 py-3 text-sm font-medium text-clay-d">

@@ -23,6 +23,7 @@ import { KPIs } from '@/components/dashboard/kpis';
 import { NextClass } from '@/components/dashboard/next-class';
 import { PagamentosSection } from '@/components/dashboard/pagamentos-section';
 import { PlanoCard } from '@/components/dashboard/plano-card';
+import { MyPacksSection } from '@/components/planos/my-packs-section';
 import { Recs } from '@/components/dashboard/recs';
 import { ReservasList } from '@/components/dashboard/reservas-list';
 import { TopBar, type DashboardTab } from '@/components/dashboard/top-bar';
@@ -35,6 +36,13 @@ import { formatFullDate, formatHourMinute } from '@/lib/format';
 export function DashboardRoute() {
   const session = useAuthStore((s) => s.user);
   const [tab, setTab] = useState<DashboardTab>('inicio');
+
+  // Snap to top on tab switch — same UX as a real page navigation.
+  // Without this the user lands midway through a long tab if the previous
+  // one was scrolled.
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'auto' });
+  }, [tab]);
 
   const meQ = useMe();
   const packsQ = useMyCreditPacks();
@@ -185,6 +193,15 @@ export function DashboardRoute() {
               />
               <PagamentosSection payments={paymentsQ.data} />
             </div>
+            {/* Wallet — every active pack, with the transfer/share CTAs
+                gated by each pack's snapshotted flags. Lives in the
+                "meu plano" tab so the user finds it where they manage
+                credits, not buried inside /planos. */}
+            {packsQ.data && packsQ.data.length > 0 && (
+              <div className="mt-6">
+                <MyPacksSection packs={packsQ.data} />
+              </div>
+            )}
           </>
         )}
 

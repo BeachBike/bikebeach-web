@@ -1,12 +1,12 @@
-import { useDefaultUnit } from '@/api/public';
+import { useEffectiveArena } from '@/api/public';
 
 /// Infinite-scrolling perks bar. The "1ª aula R$ 1" promo from the original
 /// prototype was dropped per the 2026-05-04 backend gap-resolution call (no
 /// PromoCode model in MVP) — replaced with backend-grounded perks. The bike
-/// count is live from the default unit so it stays accurate as the admin
-/// adds/retires bikes.
+/// count is live from the effective arena (driven by the global picker) so
+/// it stays accurate as the admin adds/retires bikes.
 export function Marquee() {
-  const { unit } = useDefaultUnit();
+  const { unit } = useEffectiveArena();
   const bikeCount = unit?.operationalBikeCount;
 
   const bikePerk = bikeCount
@@ -31,7 +31,7 @@ export function Marquee() {
             className="display flex items-center gap-12 text-2xl font-medium text-cream"
           >
             {it}
-            <span className="text-lg text-clay">✺</span>
+            <span className="text-lg text-clay">☼</span>
           </span>
         ))}
       </div>

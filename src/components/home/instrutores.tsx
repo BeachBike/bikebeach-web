@@ -1,29 +1,13 @@
+import { useFeaturedInstructors } from '@/api/public';
 import {
-  type FeaturedInstructor,
-  useDefaultUnit,
-  useFeaturedInstructors,
-} from '@/api/public';
-import { Placeholder } from './placeholder';
-
-type PlaceholderTone = 'clay' | 'sun' | 'sea' | 'sand' | 'cream' | 'ink';
-
-const COLOR_TONE: Record<
-  NonNullable<FeaturedInstructor['primaryClassKind']>['colorToken'],
-  PlaceholderTone
-> = {
-  CLAY: 'clay',
-  SUN: 'sun',
-  SEA: 'sea',
-  SAND: 'sand',
-  INK: 'ink',
-  // Placeholder doesn't ship a green tone — fall back to sea since GREEN is
-  // close to the seaside vibe and pairs well with cream-2 background.
-  GREEN: 'sea',
-};
+  InstructorPortrait,
+  toneFromColorToken,
+} from '@/components/common/instructor-portrait';
+import { useArenaStore } from '@/stores/arena';
 
 export function Instrutores() {
-  const { unit } = useDefaultUnit();
-  const { data: instructors, isLoading } = useFeaturedInstructors(unit?.id, 4);
+  const arena = useArenaStore((s) => s.selectedArenaId);
+  const { data: instructors, isLoading } = useFeaturedInstructors(arena, 4);
 
   const list = instructors ?? [];
 
@@ -62,17 +46,16 @@ export function Instrutores() {
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {list.map((p) => {
-            const tone: PlaceholderTone = p.primaryClassKind
-              ? COLOR_TONE[p.primaryClassKind.colorToken]
-              : 'sea';
+            const tone = toneFromColorToken(p.primaryClassKind?.colorToken);
             const [first, ...rest] = p.name.split(' ');
             const last = rest.join(' ');
             return (
               <article key={p.id} className="flex flex-col gap-5">
-                <Placeholder
-                  label={`retrato — ${first.toLowerCase()}`}
-                  ratio="4/5"
+                <InstructorPortrait
+                  photoUrl={p.photoUrl}
+                  name={p.name}
                   tone={tone}
+                  size="lg"
                 />
                 <div>
                   <div
@@ -110,7 +93,11 @@ export function Instrutores() {
 function SkeletonCard() {
   return (
     <article className="flex flex-col gap-5">
-      <Placeholder label="" ratio="4/5" tone="sand" />
+      <div
+        className="w-full animate-pulse rounded-[18px] bg-sand"
+        style={{ aspectRatio: '4/5' }}
+        aria-hidden
+      />
       <div>
         <div
           className="h-9 w-2/3 animate-pulse rounded-md bg-sand"

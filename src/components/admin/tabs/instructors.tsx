@@ -10,6 +10,7 @@ import {
   useCreateStaff,
   useUpdateStaff,
 } from '@/api/admin';
+import { InstructorPhotoUpload } from '@/components/admin/instructor-photo-upload';
 import { Btn, Card, PageHead } from '@/components/admin/ui';
 import {
   Drawer,
@@ -658,6 +659,8 @@ function InstructorFormDrawer({
             placeholder="Sunset specialist. Treina pedalada cadenciada com beats funk-soul."
           />
         </FormField>
+
+        {editing && <InstructorPhotoUpload instructor={editing} />}
 
         <FormField
           label="carro-chefe"

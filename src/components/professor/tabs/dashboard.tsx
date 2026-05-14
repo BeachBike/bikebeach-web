@@ -6,6 +6,7 @@ import {
 import type { Me } from '@/api/me';
 import { useConfirmStart } from '@/api/professor';
 import { firstName, formatCountdownSmart } from '@/lib/format';
+import { useArenaStore } from '@/stores/arena';
 
 interface DashboardTabProps {
   me: Me;
@@ -25,8 +26,12 @@ export function DashboardTab({
   onOpenCheckIn,
 }: DashboardTabProps) {
   const range = monthRange();
+  // Use the global arena store so the multi-arena instructor can switch
+  // arenas via the picker in the top bar. ArenaGuard ensures the store
+  // sits on a valid id from `me.arenas` for INSTRUCTOR.
+  const selectedArena = useArenaStore((s) => s.selectedArenaId);
   const slotsQ = useAdminClassSlots(
-    me.unitId ?? undefined,
+    selectedArena === 'all' ? me.unitId ?? undefined : selectedArena,
     range.from,
     range.to,
   );

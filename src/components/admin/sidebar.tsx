@@ -212,7 +212,6 @@ function ArenaContextSelector({
           title={selected ? `arena: ${selected.name.toLowerCase()}` : 'sem arena'}
         >
           <span className="grid size-7 place-items-center rounded-full bg-sun/30 text-[12px] text-sun">
-            📍
           </span>
         </button>
         {open && (
@@ -246,7 +245,6 @@ function ArenaContextSelector({
         aria-expanded={open}
       >
         <span className="grid size-7 place-items-center rounded-full bg-sun/30 text-[11px] text-sun">
-          📍
         </span>
         <div className="min-w-0 flex-1">
           <div className="text-[10px] font-bold uppercase tracking-[.06em] text-cream/55">

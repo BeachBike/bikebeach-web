@@ -5,6 +5,10 @@ import {
   FriendBubbleStack,
   FriendsListModal,
 } from '@/components/common';
+import {
+  InstructorPortrait,
+  toneFromColorToken,
+} from '@/components/common/instructor-portrait';
 import { firstName, formatHourMinute, intensityLabel } from '@/lib/format';
 
 const WEEKDAY_PT = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
@@ -50,6 +54,16 @@ interface Props {
     string,
     { reservationId: string; canEditBike: boolean }
   >;
+  /// 2026-05 — pending waitlist entries by slotId. When set on a slot, the
+  /// card renders the "você está na fila" state instead of the lotada CTA.
+  myWaitlistBySlot?: Map<string, { entryId: string; position: number }>;
+  /// Cancel a reservation directly from the card (only invoked when the
+  /// reservation is inside the 8h window — no other action is available).
+  onCancelReservation?: (reservationId: string) => void;
+  /// Leave the queue from the card.
+  onLeaveWaitlist?: (slotId: string) => void;
+  isLeavingWaitlist?: boolean;
+  isCancellingReservation?: boolean;
   /// G1 — `slotId → friend reservations on that slot`. Populated by the
   /// /reservar route via `useFriendsAttendingBatch` once slots load. Keyed
   /// by slotId; missing entries render no bubble.
@@ -65,6 +79,11 @@ export function StepAula({
   selectedSlotId,
   onSelectSlot,
   myReservedSlots,
+  myWaitlistBySlot,
+  onCancelReservation,
+  onLeaveWaitlist,
+  isLeavingWaitlist,
+  isCancellingReservation,
   friendsBySlot,
 }: Props) {
   // Modal state for the "+N" overflow chip. Single shared state — only
@@ -149,6 +168,7 @@ export function StepAula({
         )}
         {visible.map((s, idx) => {
           const mine = myReservedSlots.get(s.id) ?? null;
+          const queue = myWaitlistBySlot?.get(s.id) ?? null;
           const friends = friendsBySlot?.[s.id] ?? [];
           return (
             <SlotRow
@@ -156,10 +176,15 @@ export function StepAula({
               slot={s}
               selected={selectedSlotId === s.id}
               mine={mine}
+              queue={queue}
               friends={friends}
               index={idx}
               onSelect={onSelectSlot}
               onOpenFriendsList={() => setOpenModalSlotId(s.id)}
+              onCancelReservation={onCancelReservation}
+              onLeaveWaitlist={onLeaveWaitlist}
+              isLeavingWaitlist={!!isLeavingWaitlist}
+              isCancellingReservation={!!isCancellingReservation}
             />
           );
         })}
@@ -178,18 +203,28 @@ function SlotRow({
   slot,
   selected,
   mine,
+  queue,
   friends,
   index,
   onSelect,
   onOpenFriendsList,
+  onCancelReservation,
+  onLeaveWaitlist,
+  isLeavingWaitlist,
+  isCancellingReservation,
 }: {
   slot: PublicClassSlot;
   selected: boolean;
   mine: { reservationId: string; canEditBike: boolean } | null;
+  queue: { entryId: string; position: number } | null;
   friends: FriendAttending[];
   index: number;
   onSelect: (slot: PublicClassSlot) => void;
   onOpenFriendsList: () => void;
+  onCancelReservation?: (reservationId: string) => void;
+  onLeaveWaitlist?: (slotId: string) => void;
+  isLeavingWaitlist: boolean;
+  isCancellingReservation: boolean;
 }) {
   const startMs = new Date(slot.startsAt).getTime();
   const now = Date.now();
@@ -201,29 +236,55 @@ function SlotRow({
   const baixa = slot.freeSpots > 0 && slot.freeSpots <= 5;
   const titulo = slot.classKind?.name?.toLowerCase() ?? slot.title ?? 'aula';
   const intens = intensityLabel(slot.classKind?.intensity);
-  const disabled = unavailable;
+  // Three "special" states show a static card with an inline action instead
+  // of being clickable as a whole. Standard cards remain clickable buttons.
+  const lockedReservation = !!mine && !mine.canEditBike;
+  const onWaitlist = !!queue && !mine;
+  const useStaticCard = lockedReservation || onWaitlist;
+  const disabled = unavailable || useStaticCard;
+
+  const accentColor = lockedReservation
+    ? 'var(--color-sun)'
+    : onWaitlist
+      ? 'var(--color-sea)'
+      : null;
+  const accentBg = lockedReservation
+    ? 'rgba(242,166,90,0.08)'
+    : onWaitlist
+      ? 'rgba(45,106,106,0.08)'
+      : null;
+
+  const Wrapper = useStaticCard ? 'div' : 'button';
 
   return (
-    <button
-      type="button"
-      onClick={() => !disabled && onSelect(slot)}
-      disabled={disabled}
+    <Wrapper
+      {...(useStaticCard
+        ? {}
+        : {
+            type: 'button' as const,
+            onClick: () => !disabled && onSelect(slot),
+            disabled,
+          })}
       className="grid items-center gap-4 overflow-hidden rounded-2xl border-[1.5px] px-5 py-5 text-left transition-all"
       style={{
         gridTemplateColumns: '96px 1fr auto auto',
-        borderColor: selected
-          ? 'var(--color-ink)'
-          : unavailable
-            ? 'var(--color-sand)'
-            : 'var(--color-sand)',
-        background: selected
-          ? 'var(--color-cream-2)'
-          : unavailable
-            ? '#EFE7D6'
-            : 'var(--color-cream)',
+        borderColor:
+          accentColor ??
+          (selected ? 'var(--color-ink)' : 'var(--color-sand)'),
+        background:
+          accentBg ??
+          (selected
+            ? 'var(--color-cream-2)'
+            : unavailable
+              ? '#EFE7D6'
+              : 'var(--color-cream)'),
         animation: `fadeup .5s cubic-bezier(.2,.7,.2,1) ${idx2delay(index)}s both`,
-        opacity: unavailable ? 0.65 : 1,
-        cursor: disabled ? 'not-allowed' : 'pointer',
+        opacity: unavailable && !useStaticCard ? 0.65 : 1,
+        cursor: useStaticCard
+          ? 'default'
+          : disabled
+            ? 'not-allowed'
+            : 'pointer',
       }}
     >
       <div
@@ -278,19 +339,49 @@ function SlotRow({
             </span>
           )}
         </div>
-        <div className="mt-1 flex flex-wrap gap-2.5 text-[13px] text-ink-2">
-          <span>com {firstName(slot.instructor.name)}</span>
+        <div className="mt-1 flex flex-wrap items-center gap-2.5 text-[13px] text-ink-2">
+          <span className="inline-flex items-center gap-2">
+            <InstructorPortrait
+              photoUrl={slot.instructor.photoUrl}
+              name={slot.instructor.name}
+              tone={toneFromColorToken(slot.classKind?.colorToken)}
+              size="xs"
+            />
+            com {firstName(slot.instructor.name)}
+          </span>
           <span>·</span>
           <span>{slot.durationMinutes} min</span>
           <span>·</span>
           <span>pegada {intens}</span>
+          <span>·</span>
+          <span className="font-semibold text-ink">
+            {slot.unit.name.toLowerCase()}
+          </span>
           {mine && (
             <>
               <span>·</span>
-              <span className="font-semibold text-clay">
+              <span
+                className="font-semibold"
+                style={{
+                  color: mine.canEditBike
+                    ? 'var(--color-clay)'
+                    : 'var(--color-sun)',
+                }}
+              >
                 {mine.canEditBike
                   ? 'você está reservada · trocar bike →'
-                  : 'você está reservada'}
+                  : 'você está reservada · só dá pra cancelar'}
+              </span>
+            </>
+          )}
+          {onWaitlist && queue && (
+            <>
+              <span>·</span>
+              <span
+                className="font-semibold"
+                style={{ color: 'var(--color-sea)' }}
+              >
+                {queue.position}º na fila · 
               </span>
             </>
           )}
@@ -298,7 +389,41 @@ function SlotRow({
       </div>
 
       <div className="flex flex-col items-end gap-1">
-        {past ? (
+        {lockedReservation && mine ? (
+          // Reservation already exists AND inside the 8h window. The card
+          // is otherwise locked — only action is the (lossy) cancel.
+          <button
+            type="button"
+            disabled={isCancellingReservation}
+            onClick={(e) => {
+              e.stopPropagation();
+              if (
+                window.confirm(
+                  'Cancelar essa reserva? Está dentro da janela de 8h, então o crédito não volta — vai ser cobrado.',
+                )
+              ) {
+                onCancelReservation?.(mine.reservationId);
+              }
+            }}
+            className="rounded-full bg-clay-d/15 px-4 py-2 text-[12px] font-bold text-clay-d transition-colors hover:bg-clay-d hover:text-cream disabled:opacity-50"
+          >
+            {isCancellingReservation ? 'cancelando…' : 'cancelar (perde crédito)'}
+          </button>
+        ) : onWaitlist && queue ? (
+          // Already waiting in line — the seat-selection flow doesn't
+          // apply. Offer a refund-safe leave instead.
+          <button
+            type="button"
+            disabled={isLeavingWaitlist}
+            onClick={(e) => {
+              e.stopPropagation();
+              onLeaveWaitlist?.(slot.id);
+            }}
+            className="rounded-full border-[1.5px] border-sea px-4 py-2 text-[12px] font-bold text-sea-d transition-colors hover:bg-sea hover:text-cream disabled:opacity-50"
+          >
+            {isLeavingWaitlist ? 'saindo…' : 'sair da fila'}
+          </button>
+        ) : past ? (
           <span
             className="display-tight mono text-ink-2"
             style={{ fontSize: 16 }}
@@ -361,7 +486,7 @@ function SlotRow({
       >
         {selected ? '✓' : unavailable ? '·' : '→'}
       </div>
-    </button>
+    </Wrapper>
   );
 }
 

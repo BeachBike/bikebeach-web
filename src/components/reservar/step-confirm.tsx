@@ -118,6 +118,7 @@ export function StepConfirm({
           <div className="mt-5 flex flex-col gap-3.5 border-t border-sand pt-5">
             {(
               [
+                ['arena', slot.unit.name.toLowerCase()],
                 ['dia', formatDayMonth(slot.startsAt)],
                 ['hora', formatHourMinute(slot.startsAt)],
                 ['bike', `${colNumber} · fila ${rowLetter}`],
@@ -191,7 +192,7 @@ export function StepConfirm({
                   key={r}
                   className="flex gap-3 text-sm leading-snug"
                 >
-                  <span className="flex-shrink-0 font-bold text-sun">✺</span>
+                  <span className="flex-shrink-0 font-bold text-sun">☼</span>
                   {r}
                 </li>
               ))}
