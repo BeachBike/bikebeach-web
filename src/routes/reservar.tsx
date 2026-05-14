@@ -19,7 +19,7 @@ import {
   type PublicBike,
   type PublicClassSlot,
 } from '@/api/public';
-import { HealthGateBanner } from '@/components/common';
+import { ConfirmModal, HealthGateBanner } from '@/components/common';
 import { Intro } from '@/components/reservar/intro';
 import { StepAula, buildWeekDays } from '@/components/reservar/step-aula';
 import { StepBike } from '@/components/reservar/step-bike';
@@ -28,6 +28,7 @@ import { StepsBreadcrumb } from '@/components/reservar/steps-breadcrumb';
 import { ReservationSuccess } from '@/components/reservar/success';
 import { ReservarTopBar } from '@/components/reservar/top-bar';
 import { WaitlistModal } from '@/components/reservar/waitlist-modal';
+import { formatHourMinute } from '@/lib/format';
 import { useArenaStore } from '@/stores/arena';
 import { useAuthStore } from '@/stores/auth';
 
@@ -50,11 +51,11 @@ export function ReservarRoute() {
   const editReservationId = params.get('edit');
 
   // Edit mode (?edit=…) used to skip straight to step 1 (bike picker) which
-  // confused users who actually wanted to remarcar pra outro horário. Now
-  // it lands on step 0 with the original slot highlighted — clicking the
-  // same card flows to bike-swap, clicking another card prompts to remarcar.
+  // is the only safe shape for bike-swap: the original class must not remain
+  // selected in the day picker, otherwise it looks like a normal booking and
+  // can fall into the reschedule branch.
   const [step, setStep] = useState<Step>(
-    preSelectedSlotId ? 1 : editReservationId ? 0 : -1,
+    preSelectedSlotId ? 1 : editReservationId ? 1 : -1,
   );
   const [selectedSlotId, setSelectedSlotId] = useState<string | null>(
     preSelectedSlotId,
@@ -73,6 +74,12 @@ export function ReservarRoute() {
   // hour. Null = closed.
   const [remarcarTarget, setRemarcarTarget] =
     useState<PublicClassSlot | null>(null);
+  const [leaveWaitlistTarget, setLeaveWaitlistTarget] = useState<string | null>(
+    null,
+  );
+  const [cancelReservationTarget, setCancelReservationTarget] = useState<
+    string | null
+  >(null);
 
   // Day picker state — anchored to today.
   const days = useMemo(() => buildWeekDays(), []);
@@ -153,10 +160,11 @@ export function ReservarRoute() {
 
   useEffect(() => {
     if (!editingReservation) return;
+    if (step === 0) return;
     if (selectedSlotId !== editingReservation.classSlotId) {
       setSelectedSlotId(editingReservation.classSlotId);
     }
-  }, [editingReservation, selectedSlotId]);
+  }, [editingReservation, selectedSlotId, step]);
 
   const seatMapQ = useSeatMap(selectedSlotId ?? undefined);
 
@@ -221,6 +229,9 @@ export function ReservarRoute() {
     const mine = myActiveBySlot.get(s.id);
     if (mine) {
       if (mine.canEditBike) {
+        setSelectedSlotId(s.id);
+        setSelectedBikeId(null);
+        setStep(1);
         navigate(`/reservar?edit=${mine.reservationId}`);
       }
       // Outside the 8h window: do nothing (the row's copy already
@@ -249,35 +260,52 @@ export function ReservarRoute() {
       if (isEditMode) navigate('/dashboard');
       else setStep(-1);
     } else if (step === 1) {
-      // Edit mode: go back to the slot picker so the user can either
-      // re-pick the same slot (continue swapping bike) or click another
-      // card to remarcar.
       setSelectedBikeId(null);
+      if (isEditMode) {
+        // Bike-swap should never leave the original class selected in the
+        // day picker. Back exits edit mode and returns to a clean picker.
+        setSelectedSlotId(null);
+        navigate('/reservar', { replace: true });
+      }
       setStep(0);
     } else if (step === 2) {
       setStep(1);
     }
   };
 
-  const onConfirm = () => {
+  const onConfirm = async () => {
     if (!selectedSlotId || !selectedBikeId) return;
     setConfirmError(null);
 
     if (isEditMode && editingReservation) {
-      changeBikeMutation.mutate(
-        {
-          reservationId: editingReservation.id,
+      if (selectedSlotId === editingReservation.classSlotId) {
+        changeBikeMutation.mutate(
+          {
+            reservationId: editingReservation.id,
+            bikeId: selectedBikeId,
+          },
+          {
+            onSuccess: () => {
+              setStep(3);
+            },
+            onError: (err) => {
+              setConfirmError(extractApiMessage(err));
+            },
+          },
+        );
+        return;
+      }
+
+      try {
+        await cancelReservationMutation.mutateAsync(editingReservation.id);
+        await createMutation.mutateAsync({
+          classSlotId: selectedSlotId,
           bikeId: selectedBikeId,
-        },
-        {
-          onSuccess: () => {
-            setStep(3);
-          },
-          onError: (err) => {
-            setConfirmError(extractApiMessage(err));
-          },
-        },
-      );
+        });
+        setStep(3);
+      } catch (err) {
+        setConfirmError(extractApiMessage(err));
+      }
       return;
     }
 
@@ -323,11 +351,15 @@ export function ReservarRoute() {
     (step === 0 && !!selectedSlotId) || (step === 1 && !!selectedBikeId);
 
   const isSubmitting =
-    createMutation.isPending || changeBikeMutation.isPending;
+    createMutation.isPending ||
+    changeBikeMutation.isPending ||
+    cancelReservationMutation.isPending;
 
   const myExistingBikeIdOnSelected = selectedSlotId
     ? (myActiveBySlot.get(selectedSlotId)?.bikeId ?? null)
     : null;
+  const isBikeSwapMode =
+    !!editingReservation && selectedSlotId === editingReservation.classSlotId;
 
   const myReservedSlotsForList = useMemo(() => {
     const m = new Map<
@@ -404,16 +436,10 @@ export function ReservarRoute() {
                   myReservedSlots={myReservedSlotsForList}
                   myWaitlistBySlot={myWaitlistBySlot}
                   onLeaveWaitlist={(slotId) => {
-                    if (
-                      window.confirm(
-                        'Sair da fila de espera dessa aula? Seu crédito volta pra carteira.',
-                      )
-                    ) {
-                      leaveWaitlistMutation.mutate(slotId);
-                    }
+                    setLeaveWaitlistTarget(slotId);
                   }}
                   onCancelReservation={(reservationId) => {
-                    cancelReservationMutation.mutate(reservationId);
+                    setCancelReservationTarget(reservationId);
                   }}
                   isLeavingWaitlist={leaveWaitlistMutation.isPending}
                   isCancellingReservation={
@@ -424,7 +450,11 @@ export function ReservarRoute() {
               )}
 
               {step === 1 &&
-                (seatMapQ.data ? (
+                (isEditMode && !selectedSlotId ? (
+                  <div className="rounded-2xl bg-cream-2 px-5 py-12 text-center text-sm text-ink-2">
+                    carregando sua reserva...
+                  </div>
+                ) : seatMapQ.data ? (
                   <StepBike
                     seatMap={seatMapQ.data}
                     bikeId={selectedBikeId}
@@ -433,7 +463,7 @@ export function ReservarRoute() {
                     onHoverBike={setHoveredBikeId}
                     usualBikeId={usualBikeId}
                     myExistingBikeId={myExistingBikeIdOnSelected}
-                    editMode={isEditMode}
+                    editMode={isBikeSwapMode}
                     friendsOnSlot={
                       selectedSlotId
                         ? friendsAttendingQ.data?.[selectedSlotId]
@@ -456,7 +486,7 @@ export function ReservarRoute() {
                   isSubmitting={isSubmitting}
                   errorMessage={confirmError}
                   onConfirm={onConfirm}
-                  editMode={isEditMode}
+                  editMode={isBikeSwapMode}
                 />
               )}
             </div>
@@ -489,7 +519,7 @@ export function ReservarRoute() {
                 >
                   {step === 0
                     ? 'escolher bike'
-                    : isEditMode
+                    : isBikeSwapMode
                       ? 'ir pra confirmação da troca'
                       : 'ir pra confirmação'}{' '}
                   →
@@ -503,7 +533,7 @@ export function ReservarRoute() {
           <ReservationSuccess
             seatMap={seatMapQ.data}
             bike={selectedBike}
-            editMode={isEditMode}
+            editMode={isBikeSwapMode}
           />
         )}
       </main>
@@ -519,6 +549,78 @@ export function ReservarRoute() {
           setWaitlistError(null);
         }}
         onConfirm={onJoinWaitlist}
+      />
+
+      <ConfirmModal
+        open={!!remarcarTarget}
+        onClose={() => !isSubmitting && setRemarcarTarget(null)}
+        onConfirm={() => {
+          if (!remarcarTarget) return;
+          setSelectedSlotId(remarcarTarget.id);
+          setSelectedBikeId(null);
+          setConfirmError(null);
+          setStep(1);
+          setRemarcarTarget(null);
+        }}
+        title="remarcar pra essa aula?"
+        description={
+          remarcarTarget ? (
+            <>
+              Você vai escolher uma bike para{' '}
+              <b className="text-ink">
+                {remarcarTarget.title ??
+                  remarcarTarget.classKind?.name ??
+                  'essa aula'}{' '}
+                às {formatHourMinute(remarcarTarget.startsAt)}
+              </b>
+              . Na confirmação final, a reserva atual será cancelada e o
+              crédito será usado na nova aula.
+            </>
+          ) : undefined
+        }
+        confirmLabel="remarcar"
+        cancelLabel="voltar"
+        confirmTone="sea"
+        loading={isSubmitting}
+      />
+
+      <ConfirmModal
+        open={!!leaveWaitlistTarget}
+        onClose={() =>
+          !leaveWaitlistMutation.isPending && setLeaveWaitlistTarget(null)
+        }
+        onConfirm={() => {
+          if (!leaveWaitlistTarget) return;
+          leaveWaitlistMutation.mutate(leaveWaitlistTarget, {
+            onSettled: () => setLeaveWaitlistTarget(null),
+          });
+        }}
+        title="sair da fila?"
+        description="Seu crédito volta automaticamente pra carteira."
+        confirmLabel="sair da fila"
+        cancelLabel="ficar"
+        confirmTone="clay"
+        loading={leaveWaitlistMutation.isPending}
+      />
+
+      <ConfirmModal
+        open={!!cancelReservationTarget}
+        onClose={() =>
+          !cancelReservationMutation.isPending &&
+          setCancelReservationTarget(null)
+        }
+        onConfirm={() => {
+          if (!cancelReservationTarget) return;
+          cancelReservationMutation.mutate(cancelReservationTarget, {
+            onSettled: () => setCancelReservationTarget(null),
+          });
+        }}
+        title="cancelar dentro da janela?"
+        description="Está dentro da janela de 8h, então o crédito não volta e será consumido."
+        confirmLabel="cancelar e perder crédito"
+        cancelLabel="manter"
+        confirmTone="clay"
+        loading={cancelReservationMutation.isPending}
       />
     </div>
   );

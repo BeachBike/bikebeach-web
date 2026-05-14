@@ -397,13 +397,7 @@ function SlotRow({
             disabled={isCancellingReservation}
             onClick={(e) => {
               e.stopPropagation();
-              if (
-                window.confirm(
-                  'Cancelar essa reserva? Está dentro da janela de 8h, então o crédito não volta — vai ser cobrado.',
-                )
-              ) {
-                onCancelReservation?.(mine.reservationId);
-              }
+              onCancelReservation?.(mine.reservationId);
             }}
             className="rounded-full bg-clay-d/15 px-4 py-2 text-[12px] font-bold text-clay-d transition-colors hover:bg-clay-d hover:text-cream disabled:opacity-50"
           >

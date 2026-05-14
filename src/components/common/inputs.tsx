@@ -35,6 +35,7 @@ export function InputNumber({
   min,
   max,
   className = '',
+  onBlur,
   ...rest
 }: InputNumberProps) {
   const [draft, setDraft] = useState<string>(value === null ? '' : String(value));
@@ -58,6 +59,15 @@ export function InputNumber({
           return;
         }
         let n = parseInt(digits, 10);
+        if (max !== undefined && n > max) n = max;
+        setDraft(String(n));
+        onChange(n);
+      }}
+      onBlur={(e) => {
+        onBlur?.(e);
+        if (draft === '') return;
+        let n = parseInt(draft, 10);
+        if (Number.isNaN(n)) return;
         if (min !== undefined && n < min) n = min;
         if (max !== undefined && n > max) n = max;
         setDraft(String(n));
@@ -87,6 +97,7 @@ export function InputDecimal({
   min,
   max,
   className = '',
+  onBlur,
   ...rest
 }: InputDecimalProps) {
   const [draft, setDraft] = useState<string>(
@@ -112,8 +123,18 @@ export function InputDecimal({
           return;
         }
         let n = parsed;
+        if (max !== undefined && n > max) n = max;
+        onChange(n);
+      }}
+      onBlur={(e) => {
+        onBlur?.(e);
+        const parsed = decimalStringToNumber(draft);
+        if (Number.isNaN(parsed)) return;
+        let n = parsed;
         if (min !== undefined && n < min) n = min;
         if (max !== undefined && n > max) n = max;
+        const next = numberToDecimalString(n, decimals);
+        setDraft(next);
         onChange(n);
       }}
       className={`${BASE_INPUT_CLASS} ${className}`}
@@ -143,6 +164,7 @@ export function InputMoney({
   min,
   max,
   className = '',
+  onBlur,
   ...rest
 }: InputMoneyProps) {
   const [draft, setDraft] = useState<string>(
@@ -174,8 +196,17 @@ export function InputMoney({
             return;
           }
           let c = cents;
+          if (max !== undefined && c > max) c = max;
+          onChange(c);
+        }}
+        onBlur={(e) => {
+          onBlur?.(e);
+          const cents = priceTocents(draft);
+          if (cents === undefined) return;
+          let c = cents;
           if (min !== undefined && c < min) c = min;
           if (max !== undefined && c > max) c = max;
+          setDraft(centsToMaskedPrice(c));
           onChange(c);
         }}
         className={`${BASE_INPUT_CLASS} pl-10 ${className}`}
@@ -201,6 +232,7 @@ export function InputPercent({
   min = 0,
   max = 100,
   className = '',
+  onBlur,
   ...rest
 }: InputPercentProps) {
   const [draft, setDraft] = useState<string>(value === null ? '' : String(value));
@@ -224,6 +256,15 @@ export function InputPercent({
             return;
           }
           let n = parseInt(digits, 10);
+          if (n > max) n = max;
+          setDraft(String(n));
+          onChange(n);
+        }}
+        onBlur={(e) => {
+          onBlur?.(e);
+          if (draft === '') return;
+          let n = parseInt(draft, 10);
+          if (Number.isNaN(n)) return;
           if (n < min) n = min;
           if (n > max) n = max;
           setDraft(String(n));
