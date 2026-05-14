@@ -511,6 +511,136 @@ export function useAdminStats(unitId: string | undefined) {
 }
 
 // ============================================================================
+// Finance report (informational only — no money is moved by this endpoint)
+// ============================================================================
+
+export type CreditSource =
+  | 'PURCHASE_PACK'
+  | 'SUBSCRIPTION_CYCLE'
+  | 'ADMIN_GRANT'
+  | 'REFUND'
+  | 'TRANSFER';
+
+export type PaymentMethodCode = 'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD';
+
+export interface AdminFinanceReport {
+  period: { from: string; to: string };
+  unitId: string | null;
+  kpis: {
+    totalRevenueCents: number;
+    classesWithRevenue: number;
+    avgRevenuePerClassCents: number;
+    realizedReservations: number;
+    bestSellingPack: {
+      classes: number;
+      label: string;
+      soldCount: number;
+      revenueCents: number;
+    } | null;
+  };
+  revenueBySource: { source: CreditSource; revenueCents: number }[];
+  topPacks: {
+    classes: number;
+    label: string;
+    soldCount: number;
+    revenueCents: number;
+    avgPricePerClassCents: number;
+  }[];
+  revenueByMethod: {
+    method: PaymentMethodCode;
+    revenueCents: number;
+    count: number;
+  }[];
+  /// EVERY class with revenue in the window, sorted desc. The Resumo view
+  /// slices to top 10 for display; the "Por aula" sub-tab walks the full list.
+  classesByRevenue: {
+    slotId: string;
+    startsAt: string;
+    kindName: string | null;
+    instructorName: string;
+    unitName: string;
+    revenueCents: number;
+    realizedReservations: number;
+    sourceBreakdown: Partial<Record<CreditSource, number>>;
+  }[];
+  dailyRevenue: { date: string; revenueCents: number }[];
+}
+
+export interface AdminFinanceClassDetail {
+  slot: {
+    id: string;
+    startsAt: string;
+    durationMinutes: number;
+    capacity: number;
+    status: string;
+    kindName: string | null;
+    instructorName: string;
+    unitId: string;
+    unitName: string;
+  };
+  reservations: {
+    id: string;
+    userName: string;
+    userEmail: string;
+    status: string;
+    isRevenue: boolean;
+    source: CreditSource;
+    packLabel: string;
+    paidAmountCents: number | null;
+    packTotalCredits: number;
+    unitCostCents: number;
+    paymentMethod: PaymentMethodCode | null;
+    createdAt: string;
+  }[];
+  totals: {
+    revenueCents: number;
+    realizedReservations: number;
+    bySource: { source: CreditSource; revenueCents: number }[];
+    byMethod: { method: PaymentMethodCode; revenueCents: number }[];
+  };
+}
+
+/// Fetch the finance report for [from, to). `unitId` is optional: when
+/// supplied, per-class revenue is scoped to that arena (pack sales stay
+/// global because PackOffers are global rows). Caches on the period+arena
+/// triple so flipping date presets is cheap.
+export function useAdminFinance(params: {
+  from: string | undefined;
+  to: string | undefined;
+  unitId: string | undefined;
+}) {
+  return useQuery({
+    queryKey: ['admin', 'finance', params.unitId, params.from, params.to],
+    enabled: !!params.from && !!params.to,
+    queryFn: () =>
+      api
+        .get<AdminFinanceReport>('/admin/finance', {
+          params: {
+            from: params.from,
+            to: params.to,
+            ...(params.unitId ? { unitId: params.unitId } : {}),
+          },
+        })
+        .then((r) => r.data),
+    staleTime: 30_000,
+  });
+}
+
+/// Drill-down for a single class (the "Por aula" sub-tab). Lazily fired
+/// when the admin expands a class row; cached per slotId.
+export function useAdminFinanceClass(slotId: string | null) {
+  return useQuery({
+    queryKey: ['admin', 'finance', 'class', slotId],
+    enabled: !!slotId,
+    queryFn: () =>
+      api
+        .get<AdminFinanceClassDetail>(`/admin/finance/class/${slotId}`)
+        .then((r) => r.data),
+    staleTime: 60_000,
+  });
+}
+
+// ============================================================================
 // Staff (instructors / admins)
 // ============================================================================
 

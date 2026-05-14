@@ -6,6 +6,7 @@ import {
   useTransferPackCredits,
   type CreditPack,
 } from '@/api/me';
+import { InputNumber } from '@/components/common/inputs';
 
 interface Props {
   pack: CreditPack;
@@ -131,25 +132,18 @@ export function PackShareModal({ pack, mode, onClose }: Props) {
               <span className="text-[11px] font-bold uppercase tracking-wider text-ink-2">
                 quantos créditos
               </span>
-              <input
-                type="number"
-                inputMode="numeric"
-                min={1}
-                max={pack.remainingCredits}
-                value={count}
-                onChange={(e) =>
-                  setCount(
-                    Math.max(
-                      1,
-                      Math.min(
-                        pack.remainingCredits,
-                        parseInt(e.target.value, 10) || 1,
-                      ),
-                    ),
-                  )
-                }
-                className="w-24 rounded-xl border-[1.5px] border-sand bg-cream px-3 py-2 text-base font-semibold focus:border-ink focus:outline-none"
-              />
+              <div className="w-28">
+                <InputNumber
+                  value={count}
+                  onChange={(v) => setCount(v ?? 1)}
+                  min={1}
+                  max={pack.remainingCredits}
+                />
+              </div>
+              <span className="text-[11px] text-ink-3">
+                de {pack.remainingCredits} disponíve
+                {pack.remainingCredits === 1 ? 'l' : 'is'}
+              </span>
             </label>
           )}
 

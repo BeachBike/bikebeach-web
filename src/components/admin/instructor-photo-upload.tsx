@@ -6,6 +6,7 @@ import {
 } from '@/api/admin';
 import { assetUrl } from '@/api/client';
 import { Btn } from '@/components/admin/ui';
+import { ConfirmModal } from '@/components/common';
 import {
   InstructorPortrait,
   toneFromColorToken,
@@ -34,6 +35,10 @@ export function InstructorPhotoUpload({ instructor }: Props) {
   const [processedPreview, setProcessedPreview] = useState<string | null>(null);
   const [stripping, setStripping] = useState(false);
   const [stripError, setStripError] = useState<string | null>(null);
+  // ConfirmModal flags — replaces the two native window.confirm prompts
+  // (raw-JPG upload warning + photo removal). Both are simple yes/no gates.
+  const [confirmRemoveOpen, setConfirmRemoveOpen] = useState(false);
+  const [confirmJpgOpen, setConfirmJpgOpen] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Revoke object URLs on unmount so we don't leak memory after many edits.
@@ -121,20 +126,12 @@ export function InstructorPhotoUpload({ instructor }: Props) {
     }
   };
 
-  /// Bypass the background-removal step and upload the original file as-is.
-  /// Useful when the admin already has a transparent PNG produced elsewhere
-  /// (Photoshop, remove.bg, Figma) — or accepts the rectangular look of a
-  /// raw JPG. Frontend warns about the visual impact in the instructions.
-  const saveDirect = async () => {
+  /// Uploads the picked file as-is, no background removal. Called directly
+  /// for PNGs (already transparent / admin accepts it) and after the JPG
+  /// confirmation modal otherwise.
+  const doDirectUpload = async () => {
     const file = fileInputRef.current?.files?.[0];
     if (!file) return;
-    const isJpg = file.type === 'image/jpeg';
-    if (isJpg) {
-      const ok = window.confirm(
-        'Subindo a foto direto sem processar. JPG não tem fundo transparente — a foto vai aparecer como retângulo, fora do padrão visual. Continuar?',
-      );
-      if (!ok) return;
-    }
     try {
       await uploadMut.mutateAsync({
         id: instructor.id,
@@ -147,14 +144,16 @@ export function InstructorPhotoUpload({ instructor }: Props) {
     }
   };
 
-  const remove = async () => {
-    if (!instructor.photoUrl) return;
-    if (!window.confirm('Tirar a foto atual desse professor?')) return;
-    try {
-      await deleteMut.mutateAsync(instructor.id);
-    } catch {
-      /* surfaced via deleteMut.error */
+  /// Bypass the background-removal step. PNGs go straight through; JPGs
+  /// open a confirmation modal first (no transparency = rectangular look).
+  const saveDirect = () => {
+    const file = fileInputRef.current?.files?.[0];
+    if (!file) return;
+    if (file.type === 'image/jpeg') {
+      setConfirmJpgOpen(true);
+      return;
     }
+    void doDirectUpload();
   };
 
   const tone = toneFromColorToken(instructor.primaryClassKind?.colorToken);
@@ -290,12 +289,51 @@ export function InstructorPhotoUpload({ instructor }: Props) {
             </Btn>
           )}
           {currentUrl && !originalPreview && (
-            <Btn ghost onClick={remove} disabled={deleteMut.isPending}>
+            <Btn
+              ghost
+              onClick={() => setConfirmRemoveOpen(true)}
+              disabled={deleteMut.isPending}
+            >
               {deleteMut.isPending ? 'removendo…' : 'remover foto atual'}
             </Btn>
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        open={confirmRemoveOpen}
+        title="Tirar a foto desse professor?"
+        description="O professor volta a aparecer com o retrato-padrão (iniciais sobre o gradient). Você pode subir uma nova foto a qualquer momento."
+        confirmLabel="remover foto"
+        cancelLabel="cancelar"
+        confirmTone="clay"
+        loading={deleteMut.isPending}
+        onClose={() => {
+          if (!deleteMut.isPending) setConfirmRemoveOpen(false);
+        }}
+        onConfirm={() => {
+          deleteMut.mutate(instructor.id, {
+            onSettled: () => setConfirmRemoveOpen(false),
+          });
+        }}
+      />
+
+      <ConfirmModal
+        open={confirmJpgOpen}
+        title="Subir JPG sem remover o fundo?"
+        description="JPG não tem fundo transparente — a foto vai aparecer como retângulo, fora do padrão visual (sem o fundo gradient). O caminho recomendado é deixar o sistema remover o fundo."
+        confirmLabel="subir mesmo assim"
+        cancelLabel="cancelar"
+        confirmTone="ink"
+        loading={uploadMut.isPending}
+        onClose={() => {
+          if (!uploadMut.isPending) setConfirmJpgOpen(false);
+        }}
+        onConfirm={async () => {
+          await doDirectUpload();
+          setConfirmJpgOpen(false);
+        }}
+      />
     </div>
   );
 }

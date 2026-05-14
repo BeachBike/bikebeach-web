@@ -58,6 +58,7 @@ export function Footer() {
       items: [
         { label: 'a arena', href: '#arena' },
         { label: 'como funciona', href: '#como' },
+        { label: 'perguntas frequentes', href: '/faq' },
         { label: 'fale com a gente', href: 'mailto:contato@bikebeach.com.br' },
         { label: 'trabalhe na areia', href: 'mailto:trampo@bikebeach.com.br' },
       ],
@@ -103,13 +104,17 @@ export function Footer() {
           feito onde a areia encontra o mar
         </span>
         <span>
-          <a href="/termos" className="hover:text-clay">
-            termos
-          </a>
+          <Link to="/faq" className="hover:text-clay">
+            faq
+          </Link>
           <span className="mx-2 text-ink-3">·</span>
-          <a href="/privacidade" className="hover:text-clay">
+          <Link to="/termos" className="hover:text-clay">
+            termos
+          </Link>
+          <span className="mx-2 text-ink-3">·</span>
+          <Link to="/privacidade" className="hover:text-clay">
             privacidade
-          </a>
+          </Link>
         </span>
       </div>
     </footer>

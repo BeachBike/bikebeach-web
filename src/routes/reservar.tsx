@@ -204,6 +204,13 @@ export function ReservarRoute() {
   if (!session) return <Navigate to="/login" replace />;
 
   const isEditMode = !!editingReservation;
+  const goToCleanSlotPicker = () => {
+    setSelectedSlotId(null);
+    setSelectedBikeId(null);
+    setConfirmError(null);
+    if (isEditMode) navigate('/reservar', { replace: true });
+    setStep(0);
+  };
 
   const onSelectSlot = (s: PublicClassSlot) => {
     // Edit mode + same slot = the user wants to swap bike on the original
@@ -264,8 +271,8 @@ export function ReservarRoute() {
       if (isEditMode) {
         // Bike-swap should never leave the original class selected in the
         // day picker. Back exits edit mode and returns to a clean picker.
-        setSelectedSlotId(null);
-        navigate('/reservar', { replace: true });
+        goToCleanSlotPicker();
+        return;
       }
       setStep(0);
     } else if (step === 2) {
@@ -397,7 +404,13 @@ export function ReservarRoute() {
               step={step}
               hasAula={!!selectedSlotId}
               hasBike={!!selectedBikeId}
-              onJump={(target) => setStep(target as Step)}
+              onJump={(target) => {
+                if (isEditMode && target === 0) {
+                  goToCleanSlotPicker();
+                  return;
+                }
+                setStep(target as Step);
+              }}
             />
 
             {isEditMode && (

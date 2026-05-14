@@ -6,8 +6,11 @@ import { ResetPasswordRoute } from '@/routes/auth/reset-password';
 import { SignupRoute } from '@/routes/auth/signup';
 import { DashboardRoute } from '@/routes/dashboard';
 import { CheckoutRoute } from '@/routes/checkout';
+import { FaqRoute } from '@/routes/faq';
 import { LandingRoute } from '@/routes/landing';
 import { PerfilRoute } from '@/routes/perfil';
+import { PrivacidadeRoute } from '@/routes/privacidade';
+import { TermosRoute } from '@/routes/termos';
 import { PlanosRoute } from '@/routes/planos';
 import { ReservarRoute } from '@/routes/reservar';
 import { SaudeRoute } from '@/routes/saude';
@@ -38,6 +41,9 @@ export default function App() {
         <ArenaGuard />
         <Routes>
           <Route path="/" element={<LandingRoute />} />
+          <Route path="/faq" element={<FaqRoute />} />
+          <Route path="/termos" element={<TermosRoute />} />
+          <Route path="/privacidade" element={<PrivacidadeRoute />} />
           <Route path="/login" element={<LoginRoute />} />
           <Route path="/cadastro" element={<SignupRoute />} />
           <Route path="/esqueci-senha" element={<ForgotPasswordRoute />} />

@@ -28,6 +28,10 @@ function statusLabel(s: Payment['status']): string {
       return 'falhou';
     case 'REFUNDED':
       return 'estornado';
+    case 'EXPIRED':
+      return 'QR expirou';
+    default:
+      return s;
   }
 }
 
@@ -39,7 +43,11 @@ function statusColor(s: Payment['status']): string {
       return 'var(--color-sun)';
     case 'FAILED':
       return 'var(--color-clay-d)';
+    case 'EXPIRED':
+      return 'var(--color-clay-d)';
     case 'REFUNDED':
+      return 'var(--color-ink-2)';
+    default:
       return 'var(--color-ink-2)';
   }
 }
@@ -94,6 +102,16 @@ export function PagamentosSection({ payments }: Props) {
                   >
                     {statusLabel(p.status)}
                   </span>
+                  {p.status === 'PENDING' && (
+                    // Confirmation usually lands via webhook in seconds, but
+                    // if it's delayed/missed the reconciliation cron catches
+                    // it within ~5 min. Set expectations so the user doesn't
+                    // think the payment failed.
+                    <span className="mt-0.5 max-w-[180px] text-right text-[10px] leading-tight text-ink-3">
+                      pode levar até 5 min pra confirmar — não precisa pagar
+                      de novo
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

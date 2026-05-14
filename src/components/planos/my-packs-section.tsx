@@ -90,20 +90,26 @@ export function MyPacksSection({ packs }: Props) {
               </div>
 
               {/* Co-owners (when shared). Always shown so co-owners see
-                  who else is on the pool. */}
+                  who else is on the pool. The owner gets a full-width
+                  "remover" button per friend instead of a tiny × glyph. */}
               {p.coOwners && p.coOwners.length > 0 && (
-                <div className="mt-4 flex flex-col gap-1.5 rounded-xl bg-cream-2 p-3">
+                <div className="mt-4 flex flex-col gap-2 rounded-xl bg-cream-2 p-3">
                   <div className="text-[10px] font-bold uppercase tracking-wider text-ink-2">
-                    co-donos ({p.coOwners.length}/{p.maxSharedUsers})
+                    compartilhado com ({p.coOwners.length}/{p.maxSharedUsers})
                   </div>
-                  <ul className="flex flex-wrap gap-1.5">
+                  <ul className="flex flex-col gap-1.5">
                     {p.coOwners.map((c) => (
                       <li
                         key={c.user.id}
-                        className="inline-flex items-center gap-1 rounded-full bg-cream px-2.5 py-1 text-[12px]"
+                        className="flex items-center justify-between gap-2 rounded-lg bg-cream px-3 py-2"
                       >
-                        <span className="font-semibold">
-                          {firstName(c.user.name)}
+                        <span className="flex flex-col">
+                          <span className="text-[13px] font-semibold text-ink">
+                            {c.user.name}
+                          </span>
+                          <span className="text-[11px] text-ink-3">
+                            consome do mesmo saldo
+                          </span>
                         </span>
                         {isOwner && (
                           <button
@@ -115,10 +121,9 @@ export function MyPacksSection({ packs }: Props) {
                                 coOwnerName: c.user.name,
                               })
                             }
-                            className="text-clay-d hover:underline"
-                            aria-label="remover"
+                            className="shrink-0 rounded-full border-[1.5px] border-clay-d px-3 py-1.5 text-[11px] font-bold text-clay-d transition-colors hover:bg-clay-d hover:text-cream"
                           >
-                            ×
+                            remover
                           </button>
                         )}
                       </li>

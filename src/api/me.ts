@@ -129,7 +129,17 @@ export interface Reservation {
 }
 
 export type PaymentMethodApi = 'PIX' | 'CREDIT_CARD' | 'DEBIT_CARD';
-export type PaymentStatusApi = 'PENDING' | 'PAID' | 'FAILED' | 'REFUNDED';
+export type PaymentStatusApi =
+  | 'PENDING'
+  | 'PAID'
+  | 'FAILED'
+  | 'REFUNDED'
+  /// 2026-05 — the Pix QR passed its due date without payment. The
+  /// checkout offers a "gerar novo QR" path instead of a generic error.
+  | 'EXPIRED'
+  /// 2026-05 — card charge held for Asaas risk analysis. Resolves to
+  /// PAID/FAILED via webhook or the reconciliation cron.
+  | 'IN_REVIEW';
 export type PaymentKindApi = 'ONE_OFF_PACK' | 'SUBSCRIPTION_CYCLE';
 
 export interface Payment {
@@ -143,6 +153,11 @@ export interface Payment {
   packCredits: number | null;
   packExpirationDays: number | null;
   subscriptionId: string | null;
+  /// 2026-05 — card metadata snapshotted from Asaas.
+  installments: number | null;
+  cardBrand: string | null;
+  cardLast4: string | null;
+  failureReason: string | null;
   createdAt: string;
 }
 
@@ -483,6 +498,74 @@ export function useCreatePixPack() {
   });
 }
 
+/// Raw card payload. Lives in component state only — never written to
+/// localStorage, the React Query cache, or any analytics sink. Cleared
+/// after submission.
+export interface CreditCardInput {
+  holderName: string;
+  number: string;
+  expiryMonth: string; // MM
+  expiryYear: string; // YYYY
+  ccv: string;
+}
+
+export interface CreditCardHolderInfoInput {
+  name: string;
+  email: string;
+  cpfCnpj: string;
+  postalCode: string;
+  addressNumber: string;
+  addressComplement?: string;
+  phone: string;
+}
+
+export interface CreateCardPackPayload {
+  packOfferId: string;
+  billingType?: 'CREDIT_CARD' | 'DEBIT_CARD';
+  installmentCount?: number;
+  creditCard: CreditCardInput;
+  creditCardHolderInfo: CreditCardHolderInfoInput;
+}
+
+export interface CreateCardPackResult {
+  paymentId: string;
+  asaasChargeId: string;
+  /// PAID = aprovado já mintou crédito; IN_REVIEW = análise antifraude.
+  status: 'PAID' | 'IN_REVIEW';
+  amountCents: number;
+  basePriceCents: number;
+  campaignDiscountCents: number;
+  installments: number;
+  billingType: 'CREDIT_CARD' | 'DEBIT_CARD';
+  cardBrand: string | null;
+  cardLast4: string | null;
+}
+
+/// One-shot card pack purchase. The Asaas charge is synchronous, so the
+/// returned `status` tells us immediately whether the user was approved or
+/// held for risk analysis. **`retry: false`** is non-negotiable: this POST
+/// is not idempotent on the Asaas side, and a silent retry would bill
+/// twice. Network errors must surface to the user instead.
+export function useCreateCardPack() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: CreateCardPackPayload) =>
+      api
+        .post<CreateCardPackResult>('/payments/card-pack', payload)
+        .then((r) => r.data),
+    retry: false,
+    onSuccess: (data) => {
+      // PAID → credits already minted, refresh the wallet. IN_REVIEW won't
+      // have minted anything yet but invalidating is harmless and saves us
+      // forgetting later.
+      if (data.status === 'PAID') {
+        qc.invalidateQueries({ queryKey: ['credit-packs', 'me'] });
+      }
+      qc.invalidateQueries({ queryKey: ['payments', 'me'] });
+    },
+  });
+}
+
 export interface SubscriptionResult {
   id: string;
   userId: string;
@@ -564,7 +647,12 @@ export function usePaymentPolling(
     },
     refetchInterval: (query) => {
       const data = query.state.data as Payment | undefined;
-      return data?.status === 'PENDING' ? 3_000 : false;
+      // Keep polling while the charge is still in-flight: PENDING covers
+      // PIX-waiting-payment + card-just-created; IN_REVIEW covers a card
+      // held for risk analysis.
+      return data?.status === 'PENDING' || data?.status === 'IN_REVIEW'
+        ? 3_000
+        : false;
     },
     staleTime: 0,
   });

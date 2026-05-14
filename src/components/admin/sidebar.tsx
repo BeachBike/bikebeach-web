@@ -16,13 +16,15 @@ export type AdminTabId =
   | 'instructors'
   | 'class-kinds'
   | 'plans'
-  | 'bikes';
+  | 'bikes'
+  | 'finance';
 
-type NavIconKind = 'dash' | 'cal' | 'people' | 'tag' | 'bike' | 'arena';
+type NavIconKind = 'dash' | 'cal' | 'people' | 'tag' | 'bike' | 'arena' | 'coin';
 
 const NAV: { id: AdminTabId; label: string; icon: NavIconKind }[] = [
   { id: 'vision', label: 'visão geral', icon: 'dash' },
   { id: 'calendar', label: 'calendário', icon: 'cal' },
+  { id: 'finance', label: 'financeiro', icon: 'coin' },
   { id: 'arenas', label: 'arenas', icon: 'arena' },
   { id: 'instructors', label: 'professores', icon: 'people' },
   { id: 'class-kinds', label: 'tipos de aula', icon: 'tag' },
@@ -44,6 +46,9 @@ const ARENA_SCOPED_TABS: ReadonlySet<AdminTabId> = new Set([
   'calendar',
   'instructors',
   'bikes',
+  // Finance scopes per-class revenue by arena; pack sales stay global but
+  // the selector still drives the per-class table, so behave like scoped.
+  'finance',
 ]);
 
 const COLLAPSED_KEY = 'bb-admin-sidebar-collapsed';
@@ -491,6 +496,16 @@ function NavIcon({ kind }: { kind: NavIconKind }) {
       <svg {...common}>
         <path d="M21 10c0 5-9 12-9 12s-9-7-9-12a9 9 0 0 1 18 0z" />
         <circle cx="12" cy="10" r="3" />
+      </svg>
+    );
+  }
+  if (kind === 'coin') {
+    // Stack of coins — financial reporting tab.
+    return (
+      <svg {...common}>
+        <ellipse cx="12" cy="5" rx="9" ry="3" />
+        <path d="M3 5v6c0 1.66 4.03 3 9 3s9-1.34 9-3V5" />
+        <path d="M3 11v6c0 1.66 4.03 3 9 3s9-1.34 9-3v-6" />
       </svg>
     );
   }

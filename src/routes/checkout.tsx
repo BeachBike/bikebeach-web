@@ -4,13 +4,15 @@ import { Link, Navigate, useSearchParams } from 'react-router';
 import {
   useCreatePixPack,
   usePaymentPolling,
+  type CreateCardPackResult,
   type CreatePixPackResult,
 } from '@/api/me';
 import {
   usePackOffer,
   usePlan,
 } from '@/api/public';
-import { CardComingSoon } from '@/components/checkout/card-coming-soon';
+import { CardForm } from '@/components/checkout/card-form';
+import { CardInReview } from '@/components/checkout/card-in-review';
 import { CheckoutSummary } from '@/components/checkout/summary';
 import { CheckoutSuccess } from '@/components/checkout/success';
 import { CheckoutTopBar } from '@/components/checkout/top-bar';
@@ -51,23 +53,46 @@ export function CheckoutRoute() {
 
   const [method, setMethod] = useState<Method>('pix');
   const [pix, setPix] = useState<CreatePixPackResult | null>(null);
+  const [card, setCard] = useState<CreateCardPackResult | null>(null);
+  const [cardError, setCardError] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Rastreia o valor financiado quando o usuário muda as parcelas do cartão
+  const [financedAmountCents, setFinancedAmountCents] = useState<number | null>(null);
 
   const pixMutation = useCreatePixPack();
 
   // Poll the payment we just created. Once it goes to PAID, swap to the
-  // success screen. Polling auto-stops when status leaves PENDING.
-  const paymentQ = usePaymentPolling(pix?.paymentId, {
-    enabled: !!pix,
+  // success screen. Polling auto-stops when status leaves PENDING/IN_REVIEW.
+  // Both PIX (`pix.paymentId`) and a card-in-review (`card.paymentId`) share
+  // the same polling — only one is active at a time.
+  const activePaymentId =
+    pix?.paymentId ?? (card?.status === 'IN_REVIEW' ? card.paymentId : undefined);
+  const paymentQ = usePaymentPolling(activePaymentId, {
+    enabled: !!activePaymentId,
   });
-  const isPaid = paymentQ.data?.status === 'PAID';
+  // PIX success comes from the polled status; card sync success comes
+  // straight from `card.status === 'PAID'`.
+  const isPaid =
+    paymentQ.data?.status === 'PAID' || card?.status === 'PAID';
+  // PIX EXPIRED + generic FAILED for PIX get the "fresh QR" path.
+  const isPixDead =
+    paymentQ.data?.status === 'EXPIRED' ||
+    (paymentQ.data?.status === 'FAILED' && !!pix);
 
+  // A card that started IN_REVIEW and was later reproved by risk analysis
+  // surfaces here. Reset to the form so the user can try another card.
   useEffect(() => {
-    if (isPaid) {
-      // Show success ceremony for ~3.5s; the success component handles the
-      // redirect itself.
+    if (
+      card?.status === 'IN_REVIEW' &&
+      paymentQ.data?.status === 'FAILED'
+    ) {
+      setCardError(
+        paymentQ.data.failureReason ??
+          'A asaas reprovou o cartão. Tenta outro cartão ou outro método.',
+      );
+      setCard(null);
     }
-  }, [isPaid]);
+  }, [card?.status, paymentQ.data?.status, paymentQ.data?.failureReason]);
 
   if (!session) {
     const next = `/checkout${window.location.search}`;
@@ -131,15 +156,31 @@ export function CheckoutRoute() {
     });
   };
 
-  if (isPaid && pix) {
+  const regeneratePix = () => {
+    // Drop the dead charge from local state — this swings the UI back to
+    // the PixCTA path, and `startPix` mints a brand-new Asaas charge + QR.
+    setPix(null);
+    setError(null);
+    startPix();
+  };
+
+  if (isPaid && (pix || card)) {
+    // Card success may include parcelas + last4 — surface them in the
+    // method label so the success screen tells the truth about what was
+    // charged ("3x no crédito •••• 1234" vs just "cartão de crédito").
+    const paidAmount = (pix?.amountCents ?? card?.amountCents) ?? 0;
+    const paidMethodLabel =
+      card && card.cardLast4
+        ? `${card.installments > 1 ? `${card.installments}x no ` : ''}${METHOD_LABEL[method]} •••• ${card.cardLast4}`
+        : METHOD_LABEL[method];
     return (
       <div className="min-h-svh bg-cream">
         <CheckoutTopBar />
         <main className="mx-auto max-w-[1200px] px-6 pb-20">
           <CheckoutSuccess
             productName={productName}
-            amountCents={pix.amountCents}
-            method={METHOD_LABEL[method]}
+            amountCents={paidAmount}
+            method={paidMethodLabel}
           />
         </main>
       </div>
@@ -184,7 +225,9 @@ export function CheckoutRoute() {
         {!isLoadingProduct && !productError && (
           <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="rounded-[22px] border border-sand bg-cream p-7">
-              {/* Method tabs — only PIX is functional in v0 */}
+              {/* Method tabs. PIX + crédito são as opções funcionais; débito
+                  ainda é "em breve" porque exige fluxo 3DS (não está no
+                  escopo do v1 de cartão). */}
               <div className="mb-6 grid grid-cols-3 gap-2 rounded-2xl bg-cream-2 p-1.5">
                 <Tab
                   active={method === 'pix'}
@@ -195,15 +238,13 @@ export function CheckoutRoute() {
                 <Tab
                   active={method === 'credito'}
                   label="crédito"
-                  badge="em breve"
-                  badgeMuted
+                  badge="até 6x"
                   onClick={() => setMethod('credito')}
                 />
                 <Tab
                   active={method === 'debito'}
                   label="débito"
-                  badge="em breve"
-                  badgeMuted
+                  badge="À vista"
                   onClick={() => setMethod('debito')}
                 />
               </div>
@@ -227,14 +268,55 @@ export function CheckoutRoute() {
                       errorMessage={error}
                       onStart={startPix}
                     />
+                  ) : isPixDead ? (
+                    <PixExpired
+                      isSubmitting={pixMutation.isPending}
+                      errorMessage={error}
+                      onRegenerate={regeneratePix}
+                    />
                   ) : (
                     <PixPayment pix={pix} isPaid={isPaid} />
                   )}
                 </>
               )}
 
-              {isPack && method !== 'pix' && (
-                <CardComingSoon method={method} />
+              {/* Crédito — form transparente. PAID resolve síncrono via
+                  applyPaymentConfirmation; IN_REVIEW cai no card-in-review +
+                  polling do paymentId; FAILED tardio reseta pra form com
+                  o motivo. */}
+              {isPack &&
+                (method === 'credito' || method === 'debito') &&
+                packOfferId && (
+                <>
+                  {cardError && (
+                    <div className="mb-4 rounded-xl bg-clay-d/10 px-4 py-3 text-sm font-medium text-clay-d">
+                      {cardError}
+                    </div>
+                  )}
+                  {card?.status === 'IN_REVIEW' ? (
+                    <CardInReview result={card} />
+                  ) : (
+                    <CardForm
+                      packOfferId={packOfferId}
+                      amountCents={priceAfterCampaign}
+                      billingType={
+                        method === 'debito' ? 'DEBIT_CARD' : 'CREDIT_CARD'
+                      }
+                      installmentMax={method === 'debito' ? 1 : 6}
+                      onPaid={(r) => {
+                        setCardError(null);
+                        setCard(r);
+                      }}
+                      onInReview={(r) => {
+                        setCardError(null);
+                        setCard(r);
+                      }}
+                      onFinancedAmountChange={(cents) =>
+                        setFinancedAmountCents(cents)
+                      }
+                    />
+                  )}
+                </>
               )}
             </div>
 
@@ -245,6 +327,11 @@ export function CheckoutRoute() {
               discountCents={discountCents}
               showDiscount={isPack}
               pixDiscountPercent={pixDiscountPercent}
+              financedAmountCents={
+                method !== 'pix' && financedAmountCents
+                  ? financedAmountCents
+                  : undefined
+              }
             />
           </div>
         )}
@@ -256,7 +343,7 @@ export function CheckoutRoute() {
               pagamento intermediado pela asaas
             </div>
             <p className="mt-1 text-[13px] text-ink-2">
-              Os dados do seu cartão (quando o cartão chegar) são processados
+              Os dados do seu cartão são processados
               em ambiente certificado PCI-DSS. Recibo automático no seu
               e-mail.
             </p>
@@ -381,6 +468,51 @@ function PixCTA({
         className="self-start rounded-full bg-clay px-7 py-4 text-base font-semibold text-cream shadow-[0_18px_40px_-16px_rgba(216,93,52,0.6)] transition-transform duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
       >
         {isSubmitting ? 'gerando QR…' : 'gerar QR pix →'}
+      </button>
+    </div>
+  );
+}
+
+/// Shown when the polled payment turned EXPIRED (Pix QR passed its due
+/// date) or FAILED. The previous QR is dead — the only path forward is a
+/// fresh charge, so the CTA regenerates it in one tap.
+function PixExpired({
+  isSubmitting,
+  errorMessage,
+  onRegenerate,
+}: {
+  isSubmitting: boolean;
+  errorMessage: string | null;
+  onRegenerate: () => void;
+}) {
+  return (
+    <div className="flex flex-col gap-4 py-4">
+      <div className="inline-flex w-fit items-center gap-2 rounded-full bg-clay-d/10 px-3 py-1 text-[11px] font-bold uppercase tracking-widest text-clay-d">
+        QR expirou
+      </div>
+      <div
+        className="display-tight"
+        style={{ fontSize: 28, lineHeight: 1.05 }}
+      >
+        esse QR não vale mais.
+      </div>
+      <p className="text-sm text-ink-2">
+        O código PIX tem prazo de validade e o seu passou sem pagamento
+        confirmado. Nada foi cobrado. Gere um novo QR pra continuar — leva
+        um segundo.
+      </p>
+      {errorMessage && (
+        <div className="rounded-xl bg-clay-d/10 px-4 py-3 text-sm font-medium text-clay-d">
+          {errorMessage}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onRegenerate}
+        disabled={isSubmitting}
+        className="self-start rounded-full bg-clay px-7 py-4 text-base font-semibold text-cream shadow-[0_18px_40px_-16px_rgba(216,93,52,0.6)] transition-transform duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+      >
+        {isSubmitting ? 'gerando novo QR…' : 'gerar novo QR pix →'}
       </button>
     </div>
   );

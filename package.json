@@ -13,6 +13,7 @@
     "@hookform/resolvers": "^5.2.2",
     "@imgly/background-removal": "^1.7.0",
     "@radix-ui/react-slot": "^1.2.4",
+    "@react-pdf/renderer": "^4.5.1",
     "@tailwindcss/vite": "^4.2.4",
     "@tanstack/react-query": "^5.100.9",
     "axios": "^1.16.0",

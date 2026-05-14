@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import type { CreatePixPackResult } from '@/api/me';
 
 interface Props {
@@ -13,6 +13,12 @@ export function PixPayment({ pix, isPaid }: Props) {
   const expireMs = new Date(pix.pix.expiresAt).getTime();
   const [now, setNow] = useState(Date.now());
   const [copied, setCopied] = useState(false);
+  // When the Clipboard API isn't available (older browsers / insecure
+  // context) we reveal an inline read-only input the user can select +
+  // copy manually — keeps everything inside the app's visual language
+  // instead of a native window.prompt.
+  const [showManualCopy, setShowManualCopy] = useState(false);
+  const manualCopyRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const t = setInterval(() => setNow(Date.now()), 1000);
@@ -30,8 +36,9 @@ export function PixPayment({ pix, isPaid }: Props) {
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
     } catch {
-      // Older browsers — fall back to a manual select prompt
-      window.prompt('Copia o código PIX:', pix.pix.qrCodePayload);
+      // Older browsers — reveal the inline manual-copy field + select it.
+      setShowManualCopy(true);
+      setTimeout(() => manualCopyRef.current?.select(), 0);
     }
   };
 
@@ -87,6 +94,23 @@ export function PixPayment({ pix, isPaid }: Props) {
           </button>
         </div>
 
+        {showManualCopy && (
+          // Fallback for browsers without the Clipboard API — a selectable
+          // read-only field instead of a native window.prompt.
+          <div className="mt-2 flex flex-col gap-1.5 rounded-xl border border-sand bg-cream px-3.5 py-3">
+            <span className="text-[11px] font-semibold text-ink-2">
+              seu navegador não deixou copiar automático — selecione e copie:
+            </span>
+            <input
+              ref={manualCopyRef}
+              readOnly
+              value={pix.pix.qrCodePayload}
+              onFocus={(e) => e.currentTarget.select()}
+              className="mono w-full rounded-lg border-[1.5px] border-sand bg-cream-2 px-2.5 py-2 text-xs"
+            />
+          </div>
+        )}
+
         <div
           className="mt-4 flex items-center gap-3 rounded-xl px-3.5 py-3 text-cream"
           style={{
@@ -126,8 +150,10 @@ export function PixPayment({ pix, isPaid }: Props) {
         </div>
 
         <p className="mt-3 text-xs text-ink-2 opacity-80">
-          ↳ recebe via api da <b>asaas</b>. Confirmação automática em até 30s
-          depois do pagamento. Sem cobrança extra.
+          ↳ recebe via api da <b>asaas</b>. Normalmente confirma em segundos,
+          mas pode levar até <b>5 minutos</b> — se você fechar essa tela, o
+          sistema confirma sozinho e o pacote aparece na sua conta. Sem
+          cobrança extra.
         </p>
       </div>
     </div>

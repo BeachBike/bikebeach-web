@@ -9,6 +9,10 @@ interface Props {
   /// line since the backend handles plan pricing without per-method delta.
   showDiscount: boolean;
   pixDiscountPercent: number;
+  /// When purchasing via card with interest, the total charged is higher
+  /// than the cash price. If provided, show this financed total instead of
+  /// the (discounted) cash total.
+  financedAmountCents?: number;
 }
 
 export function CheckoutSummary({
@@ -18,8 +22,12 @@ export function CheckoutSummary({
   discountCents,
   showDiscount,
   pixDiscountPercent,
+  financedAmountCents,
 }: Props) {
-  const total = baseCents - (showDiscount ? discountCents : 0);
+  const cashTotal = baseCents - (showDiscount ? discountCents : 0);
+  // If card financing is active, show the financed total; otherwise show cash
+  const total = financedAmountCents ?? cashTotal;
+  const interestCents = financedAmountCents ? financedAmountCents - cashTotal : 0;
 
   return (
     <aside className="sticky top-[90px] self-start rounded-[22px] bg-cream-2 p-6">
@@ -40,6 +48,13 @@ export function CheckoutSummary({
           <Row
             k={`desconto pix (-${pixDiscountPercent}%)`}
             v={`- ${formatCents(discountCents)}`}
+            tone="clay"
+          />
+        )}
+        {interestCents > 0 && (
+          <Row
+            k="juros do parcelamento"
+            v={`+ ${formatCents(interestCents)}`}
             tone="clay"
           />
         )}

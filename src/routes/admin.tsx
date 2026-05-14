@@ -10,6 +10,7 @@ import { AdminArenas } from '@/components/admin/tabs/arenas';
 import { AdminBikes } from '@/components/admin/tabs/bikes';
 import { AdminCalendar } from '@/components/admin/tabs/calendar';
 import { AdminClassKinds } from '@/components/admin/tabs/class-kinds';
+import { AdminFinance } from '@/components/admin/tabs/finance';
 import { AdminInstructors } from '@/components/admin/tabs/instructors';
 import { AdminPlansAndOffers } from '@/components/admin/tabs/plans-offers';
 import { AdminVision } from '@/components/admin/tabs/vision';
@@ -49,6 +50,7 @@ export function AdminRoute() {
         >
           {activeTab === 'vision' && <AdminVision unitId={unitId} />}
           {activeTab === 'calendar' && <AdminCalendar unitId={unitId} />}
+          {activeTab === 'finance' && <AdminFinance unitId={unitId} />}
           {activeTab === 'arenas' && <AdminArenas />}
           {activeTab === 'instructors' && (
             <AdminInstructors unitId={unitId} />
