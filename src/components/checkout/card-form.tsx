@@ -166,7 +166,6 @@ export function CardForm({
   };
 
   const submitting = mutation.isPending;
-  const perInstallment = financedTotalCents / 100 / effectiveInstallments;
 
   return (
     // Single-column form — the checkout already places this inside a
