@@ -121,7 +121,10 @@ export function DashboardTab({
 
       {!live && proxima && (
         <div className="mt-5 grid gap-3 lg:grid-cols-[1fr_minmax(0,360px)]">
-          <NextClassCard slot={proxima} />
+          <NextClassCard
+            slot={proxima}
+            onOpenLive={() => onOpenCheckIn(proxima)}
+          />
           <div className="flex flex-col gap-3 rounded-[22px] bg-cream-2 p-6">
             <div className="text-xs font-bold uppercase tracking-wide text-clay">
               atalhos
@@ -354,7 +357,19 @@ function LiveClassCard({
   );
 }
 
-function NextClassCard({ slot }: { slot: AdminClassSlot }) {
+/// How early (ms before startsAt) the "abrir tela da aula" CTA appears on
+/// the next-class card, letting the professor open the AO VIVO screen to
+/// get set up before students arrive. Matches the 10-min auto-confirm grace
+/// on the backend cron — same "the class is effectively starting" window.
+const LIVE_SCREEN_PREP_WINDOW_MS = 10 * 60_000;
+
+function NextClassCard({
+  slot,
+  onOpenLive,
+}: {
+  slot: AdminClassSlot;
+  onOpenLive: () => void;
+}) {
   const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
     // 1s tick — when the slot is < 24h away the countdown shows seconds.
@@ -364,6 +379,10 @@ function NextClassCard({ slot }: { slot: AdminClassSlot }) {
   }, []);
   const startsAt = new Date(slot.startsAt);
   const countdown = formatCountdownSmart(slot.startsAt, now);
+  // Within the prep window the professor can already open the live screen
+  // to get set up. (`proxima` is always future here, so msUntilStart > 0.)
+  const canOpenLive =
+    startsAt.getTime() - now <= LIVE_SCREEN_PREP_WINDOW_MS;
   const dataStr = startsAt.toLocaleDateString('pt-BR', {
     weekday: 'long',
     day: '2-digit',
@@ -408,6 +427,17 @@ function NextClassCard({ slot }: { slot: AdminClassSlot }) {
         <Stat label="alunos" value={`${slot.reservedCount}/${slot.capacity}`} mono />
         <Stat label="duração" value={`${slot.durationMinutes} min`} />
       </div>
+
+      {canOpenLive && (
+        <button
+          type="button"
+          onClick={onOpenLive}
+          className="mt-6 inline-flex items-center gap-2.5 rounded-full bg-ink px-6 py-3.5 text-[14px] font-semibold text-cream transition-transform hover:-translate-y-0.5"
+        >
+          <ListIcon /> abrir tela da aula
+          <span className="text-cream/60">→</span>
+        </button>
+      )}
     </div>
   );
 }

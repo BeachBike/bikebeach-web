@@ -54,8 +54,6 @@ export function PackCard({
     isAvulso
       ? '1 aula a sua escolha'
       : `${offer.classes} aulas em ${offer.expirationDays} dias`,
-    'Reserva da bike no site',
-    'Toalha e ducha',
     pixDiscountPercent > 0
       ? `${pixDiscountPercent}% off pagando no Pix`
       : 'Pagamento Pix, crédito ou débito',

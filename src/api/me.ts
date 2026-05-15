@@ -18,6 +18,9 @@ export interface Me {
   unitId: string | null;
   isActive: boolean;
   mustChangePassword: boolean;
+  /// 2026-05-14 — false on signup, flipped to true after the user finishes
+  /// or skips the dashboard onboarding tour. Drives the auto-open behavior.
+  hasSeenOnboarding: boolean;
   bio: string | null;
   /// G1 — global "modo invisível" toggle. When true the user is hidden
   /// from friends-attending overlays everywhere.
@@ -188,6 +191,23 @@ export function useUpdateMe() {
       api.patch<Me>('/users/me', payload).then((r) => r.data),
     onSuccess: (data) => {
       qc.setQueryData(['me'], data);
+    },
+  });
+}
+
+/// Flips `hasSeenOnboarding` to true on the backend. Idempotent — calling
+/// it twice is a no-op (the backend uses `updateMany {where: false}`).
+/// Optimistic on the local cache so the tour closes instantly even on
+/// slow networks; if the request fails we don't roll back (the worst case
+/// is the tour reopens on the next dashboard load — survivable).
+export function useMarkOnboardingSeen() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () =>
+      api.patch('/users/me/onboarding-seen').then((r) => r.data),
+    onMutate: () => {
+      const prev = qc.getQueryData<Me>(['me']);
+      if (prev) qc.setQueryData<Me>(['me'], { ...prev, hasSeenOnboarding: true });
     },
   });
 }
@@ -532,9 +552,16 @@ export interface CreateCardPackResult {
   asaasChargeId: string;
   /// PAID = aprovado já mintou crédito; IN_REVIEW = análise antifraude.
   status: 'PAID' | 'IN_REVIEW';
+  /// Total efetivamente cobrado em cents (cashPriceCents + interestCents).
+  /// É o que entra na fatura do cartão.
   amountCents: number;
   basePriceCents: number;
   campaignDiscountCents: number;
+  /// Preço à vista após desconto de campanha (sem juros). UI usa pra
+  /// mostrar "à vista R$ X · parcelado R$ Y".
+  cashPriceCents: number;
+  /// Juros do parcelado em cents. Zero para ≤3x ou débito.
+  interestCents: number;
   installments: number;
   billingType: 'CREDIT_CARD' | 'DEBIT_CARD';
   cardBrand: string | null;

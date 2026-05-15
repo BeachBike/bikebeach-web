@@ -24,6 +24,12 @@ export interface DayOption {
   isToday: boolean;
 }
 
+function isoDateKey(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(
+    d.getDate(),
+  ).padStart(2, '0')}`;
+}
+
 export function buildWeekDays(today: Date = new Date()): DayOption[] {
   const start = new Date(today);
   start.setHours(0, 0, 0, 0);
@@ -31,7 +37,7 @@ export function buildWeekDays(today: Date = new Date()): DayOption[] {
     const d = new Date(start);
     d.setDate(start.getDate() + i);
     return {
-      iso: d.toISOString().slice(0, 10),
+      iso: isoDateKey(d),
       label: WEEKDAY_PT[d.getDay()] ?? '',
       dayNum: String(d.getDate()).padStart(2, '0'),
       isToday: i === 0,
@@ -98,7 +104,7 @@ export function StepAula({
   const visible = (slots ?? []).filter((s) => {
     // The endpoint already filters to the same day; defensive trim.
     const d = new Date(s.startsAt);
-    return d.toISOString().slice(0, 10) === selectedDay;
+    return isoDateKey(d) === selectedDay;
   });
 
   return (

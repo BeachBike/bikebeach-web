@@ -30,7 +30,6 @@ export function PlanCard({
 
   const bullets: string[] = [
     ilimitado ? 'Aulas ilimitadas' : `${plan.monthlyCredits} aulas no mes`,
-    'Reserva 7 dias antes',
     'Recibo automatico no seu e-mail',
     'Cancele quando quiser, sem multa',
   ];

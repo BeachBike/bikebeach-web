@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { Link } from 'react-router';
 import {
   useMe,
   useMyCreditPacks,
@@ -110,7 +111,7 @@ export function PlanosRoute() {
           <p className="mt-4 max-w-[640px] text-[15px] text-ink-2">
             Pacote pra quem vai do jeito que dá. Mensal pra quem fez do
             spinning rotina. Sem fidelidade, sem letrinha miúda. Aceitamos
-            Pix, crédito e débito (cartão chega em breve).
+            Pix, crédito e débito.
           </p>
         </section>
 
@@ -170,7 +171,7 @@ export function PlanosRoute() {
                 mensal
               </h2>
               <p className="text-sm text-ink-2">
-                Pra quem pedala toda semana. Cobrança recorrente via PIX.
+                Pra quem pedala toda semana.
               </p>
             </div>
             <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
@@ -197,7 +198,7 @@ export function PlanosRoute() {
               d: 'Cancela quando quiser, no painel. Pacote vale até a validade.',
             },
             {
-              t: 'Cancele até 8h antes',
+              t: 'Cancele aulas até 8h antes',
               d: 'Crédito volta pra carteira automaticamente. Sem custo.',
             },
             {
@@ -223,9 +224,24 @@ export function PlanosRoute() {
         <footer className="mt-14 flex flex-wrap items-center justify-between gap-3 border-t border-sand pt-6 text-[13px] text-ink-2">
           <span>© 2026 bikebeach</span>
           <div className="flex gap-5">
-            <a href="/">home</a>
-            <a href="#">termos</a>
-            <a href="#">contato</a>
+            <Link to="/" className="hover:text-clay">
+              home
+            </Link>
+            <Link to="/faq" className="hover:text-clay">
+              faq
+            </Link>
+            <Link to="/termos" className="hover:text-clay">
+              termos
+            </Link>
+            <Link to="/privacidade" className="hover:text-clay">
+              privacidade
+            </Link>
+            <a
+              href="mailto:contato@bikebeach.com.br"
+              className="hover:text-clay"
+            >
+              contato
+            </a>
           </div>
         </footer>
       </main>

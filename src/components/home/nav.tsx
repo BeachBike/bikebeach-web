@@ -12,10 +12,21 @@ const LINKS = [
   ['A arena', '#arena'],
 ] as const;
 
+interface NavProps {
+  /// `full` (default) — usado na Home, com os anchors de seção (#aulas,
+  /// #instrutores, #planos, #arena). Esses âncoras só existem na Home;
+  /// em qualquer outra página clicar não faria nada.
+  ///
+  /// `minimal` — pra páginas internas estáticas (FAQ, Termos, Privacidade).
+  /// Esconde os anchors de seção e mantém só logo + ArenaPicker + auth.
+  /// Mantém a mesma fixação + blur para não criar "outro header" visual.
+  variant?: 'full' | 'minimal';
+}
+
 /// Fixed nav. Transparent at top, blurred cream once the user scrolls past
 /// the hero. Auth-aware (D1 / item 1): logged users see a "abrir painel"
 /// CTA wired to their role-specific portal instead of "Entrar / Reservar".
-export function Nav() {
+export function Nav({ variant = 'full' }: NavProps = {}) {
   const [scrolled, setScrolled] = useState(false);
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 30);
@@ -41,17 +52,19 @@ export function Nav() {
         <Logo />
       </Link>
 
-      <div className="hidden gap-8 text-[15px] font-medium md:flex">
-        {LINKS.map(([label, href]) => (
-          <a
-            key={label}
-            href={href}
-            className="text-ink transition-colors hover:text-clay"
-          >
-            {label}
-          </a>
-        ))}
-      </div>
+      {variant === 'full' && (
+        <div className="hidden gap-8 text-[15px] font-medium md:flex">
+          {LINKS.map(([label, href]) => (
+            <a
+              key={label}
+              href={href}
+              className="text-ink transition-colors hover:text-clay"
+            >
+              {label}
+            </a>
+          ))}
+        </div>
+      )}
 
       <div className="flex items-center gap-2">
         <ArenaPicker variant="nav" />

@@ -406,11 +406,21 @@ export function SignupRoute() {
             >
               <span className="text-[13px] leading-snug text-ink-2">
                 concordo com os{' '}
-                <a href="#" className="font-semibold text-clay">
+                <a
+                  href="/termos"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-clay underline-offset-2 hover:underline"
+                >
                   termos de uso
                 </a>{' '}
                 e a{' '}
-                <a href="#" className="font-semibold text-clay">
+                <a
+                  href="/privacidade"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-semibold text-clay underline-offset-2 hover:underline"
+                >
                   política de privacidade
                 </a>
                 . ciente de que atividade física tem riscos e que devo

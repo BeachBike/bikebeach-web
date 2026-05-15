@@ -59,7 +59,7 @@ export function NextClass({
             </span>
           </div>
           <p className="mt-6 max-w-[420px] text-cream/80">
-            Reserve uma bike numerada na areia. Cancele até 8h antes — crédito
+            Reserve uma bike numerada na areia. Cancele aulas até 8h antes — crédito
             volta pra carteira.
           </p>
         </div>

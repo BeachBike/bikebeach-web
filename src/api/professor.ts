@@ -75,29 +75,47 @@ export function useConfirmStart() {
   });
 }
 
-/// F3 — bulk check-in / no-show pass at end of class. Caller passes the
-/// reservation IDs the instructor toggled to "presente"; backend marks the
-/// rest as NO_SHOW.
-export function useBulkCheckIn() {
+/// AO VIVO live tap — flip a single reservation between presente and
+/// ausente as the professor taps a bike on the live screen. Each call
+/// commits immediately (no batch). Cache invalidation refreshes the
+/// roster + the admin slot list so counters stay in sync.
+export function useToggleCheckIn() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: ({
       slotId,
-      presentReservationIds,
+      reservationId,
+      present,
     }: {
       slotId: string;
-      presentReservationIds: string[];
+      reservationId: string;
+      present: boolean;
     }) =>
       api
-        .post<{ checkedIn: number; noShow: number; ignored: number }>(
-          `/class-slots/${slotId}/bulk-check-in`,
-          { presentReservationIds },
+        .post<{ reservationId: string; status: RosterStudent['status'] }>(
+          `/class-slots/${slotId}/toggle-check-in`,
+          { reservationId, present },
         )
         .then((r) => r.data),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({
         queryKey: ['professor', 'roster', vars.slotId],
       });
+      qc.invalidateQueries({ queryKey: ['admin', 'class-slots'] });
+    },
+  });
+}
+
+/// AO VIVO "finalizar aula" — instructor closes the class manually.
+/// Backend completes the slot, converts ACTIVE → NO_SHOW and CHECKED_IN
+/// → COMPLETED. No-op if the slot is already closed.
+export function useFinalizeClassSlot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (slotId: string) =>
+      api.post(`/class-slots/${slotId}/finalize`).then((r) => r.data),
+    onSuccess: (_data, slotId) => {
+      qc.invalidateQueries({ queryKey: ['professor', 'roster', slotId] });
       qc.invalidateQueries({ queryKey: ['admin', 'class-slots'] });
     },
   });

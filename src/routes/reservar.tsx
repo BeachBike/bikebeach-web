@@ -43,6 +43,28 @@ export function ReservarRoute() {
   const navigate = useNavigate();
   const [params] = useSearchParams();
 
+  const timezoneOffsetMinutes = new Date().getTimezoneOffset();
+  const timezoneOffset = `${timezoneOffsetMinutes <= 0 ? '+' : '-'}${String(
+    Math.floor(Math.abs(timezoneOffsetMinutes) / 60),
+  ).padStart(2, '0')}:${String(Math.abs(timezoneOffsetMinutes) % 60).padStart(
+    2,
+    '0',
+  )}`;
+
+  const formatDayBoundary = (
+    day: string,
+    hours: number,
+    minutes: number,
+    seconds: number,
+    milliseconds: number,
+  ) => `${day}T${String(hours).padStart(2, '0')}:${String(minutes).padStart(
+    2,
+    '0',
+  )}:${String(seconds).padStart(2, '0')}.${String(milliseconds).padStart(
+    3,
+    '0',
+  )}${timezoneOffset}`;
+
   // Pre-selecting a slot via ?slot=… (NextClass deep-link).
   const preSelectedSlotId = params.get('slot');
   // Edit-bike mode: ?edit=<reservationId>. When set, the flow skips intro
@@ -92,8 +114,8 @@ export function ReservarRoute() {
   const myWaitlistsQ = useMyWaitlists();
   const arena = useArenaStore((s) => s.selectedArenaId);
 
-  const dayStart = `${selectedDay}T00:00:00.000Z`;
-  const dayEnd = `${selectedDay}T23:59:59.999Z`;
+  const dayStart = `${selectedDay}T00:00:00`;
+  const dayEnd = `${selectedDay}T23:59:59.999`;
   const slotsQ = useClassSlotsRange(arena, dayStart, dayEnd);
 
   // G1 — overlay friend bubbles on the day's slots. Always include the

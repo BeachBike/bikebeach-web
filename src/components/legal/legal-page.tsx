@@ -52,7 +52,10 @@ export function LegalPage({
 
   return (
     <div className="min-h-svh overflow-x-hidden bg-cream text-ink">
-      <Nav />
+      {/* Páginas legais não têm as seções da Home (#aulas, #planos, etc.) —
+          `variant="minimal"` esconde os links de seção que apontariam pra
+          âncoras inexistentes aqui. Logo + ArenaPicker + auth seguem. */}
+      <Nav variant="minimal" />
 
       {/* ── Hero ───────────────────────────────────────────────── */}
       <header className="px-7 pb-12 pt-[150px]">

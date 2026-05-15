@@ -225,9 +225,9 @@ export function CheckoutRoute() {
         {!isLoadingProduct && !productError && (
           <div className="mt-5 grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="rounded-[22px] border border-sand bg-cream p-7">
-              {/* Method tabs. PIX + crédito são as opções funcionais; débito
-                  ainda é "em breve" porque exige fluxo 3DS (não está no
-                  escopo do v1 de cartão). */}
+              {/* Method tabs — todos os 3 funcionais. Crédito permite até 6x
+                  (sem juros até 3x, 2,99% a.m. composto a partir de 4x);
+                  débito é sempre à vista. */}
               <div className="mb-6 grid grid-cols-3 gap-2 rounded-2xl bg-cream-2 p-1.5">
                 <Tab
                   active={method === 'pix'}
@@ -280,10 +280,11 @@ export function CheckoutRoute() {
                 </>
               )}
 
-              {/* Crédito — form transparente. PAID resolve síncrono via
-                  applyPaymentConfirmation; IN_REVIEW cai no card-in-review +
-                  polling do paymentId; FAILED tardio reseta pra form com
-                  o motivo. */}
+              {/* Cartão (crédito + débito) — mesmo form transparente, o que
+                  muda é o `billingType` enviado pro backend. PAID resolve
+                  síncrono via applyPaymentConfirmation; IN_REVIEW cai no
+                  card-in-review + polling do paymentId; FAILED tardio reseta
+                  pra form com o motivo. */}
               {isPack &&
                 (method === 'credito' || method === 'debito') &&
                 packOfferId && (

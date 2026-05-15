@@ -59,8 +59,6 @@ export function Footer() {
         { label: 'a arena', href: '#arena' },
         { label: 'como funciona', href: '#como' },
         { label: 'perguntas frequentes', href: '/faq' },
-        { label: 'fale com a gente', href: 'mailto:contato@bikebeach.com.br' },
-        { label: 'trabalhe na areia', href: 'mailto:trampo@bikebeach.com.br' },
       ],
     },
   ];

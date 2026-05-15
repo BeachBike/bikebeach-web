@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router';
 import { type AdminClassSlot } from '@/api/admin';
 import { useMe } from '@/api/me';
 import {
@@ -6,7 +7,6 @@ import {
   type ProfessorTabId,
 } from '@/components/professor/top-bar';
 import { CancelModal } from '@/components/professor/cancel-modal';
-import { CheckInDrawer } from '@/components/professor/check-in-drawer';
 import { CreateClassModal } from '@/components/professor/create-class-modal';
 import { FirstLoginModal } from '@/components/professor/first-login-modal';
 import { LiveCancelModal } from '@/components/professor/live-cancel-modal';
@@ -17,6 +17,7 @@ import { DashboardTab } from '@/components/professor/tabs/dashboard';
 
 export function ProfessorRoute() {
   const meQ = useMe();
+  const navigate = useNavigate();
   const [tab, setTab] = useState<ProfessorTabId>('dashboard');
 
   // Snap to top on tab switch.
@@ -25,9 +26,6 @@ export function ProfessorRoute() {
   }, [tab]);
   const [cancelTarget, setCancelTarget] = useState<AdminClassSlot | null>(null);
   const [liveTarget, setLiveTarget] = useState<AdminClassSlot | null>(null);
-  const [checkInTarget, setCheckInTarget] = useState<AdminClassSlot | null>(
-    null,
-  );
   const [createOpen, setCreateOpen] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -70,7 +68,9 @@ export function ProfessorRoute() {
             onOpenCreateClass={() => setCreateOpen(true)}
             onOpenCancel={(s) => setCancelTarget(s)}
             onOpenLiveCancel={(s) => setLiveTarget(s)}
-            onOpenCheckIn={(s) => setCheckInTarget(s)}
+            // "fazer presença" abre a tela AO VIVO dedicada — mapa da arena
+            // com presença bike-a-bike + ações da aula.
+            onOpenCheckIn={(s) => navigate(`/professor/aula/${s.id}`)}
           />
         )}
         {tab === 'agenda' && (
@@ -104,18 +104,6 @@ export function ProfessorRoute() {
         slot={liveTarget}
         onClose={() => setLiveTarget(null)}
         onCancelled={() => setToast('Cancelamento de emergência registrado.')}
-      />
-      <CheckInDrawer
-        open={!!checkInTarget}
-        slot={checkInTarget}
-        onClose={() => setCheckInTarget(null)}
-        onSubmitted={(s) => {
-          const ignoredTail =
-            s.ignored > 0 ? ` · ${s.ignored} bloqueada(s)` : '';
-          setToast(
-            `presença registrada · ${s.checkedIn} pres / ${s.noShow} aus${ignoredTail}`,
-          );
-        }}
       />
       <Toast message={toast} onClose={() => setToast(null)} />
     </div>

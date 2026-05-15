@@ -20,12 +20,6 @@ export function ContaShell({ mode, children }: Props) {
         >
           ← voltar pra home
         </Link>
-        <div className="text-[13px] font-semibold text-ink-2">
-          precisa de ajuda?{' '}
-          <a href="#" className="text-clay">
-            fale com a gente
-          </a>
-        </div>
       </div>
 
       {/* Card grid */}
@@ -38,9 +32,12 @@ export function ContaShell({ mode, children }: Props) {
       <div className="mx-auto mt-6 flex max-w-[1240px] flex-wrap items-center justify-between gap-3 px-2 text-[13px] text-ink-2">
         <span>© 2026 bikebeach</span>
         <div className="flex gap-5">
-          <a href="#">termos</a>
-          <a href="#">privacidade</a>
-          <a href="#">contato</a>
+          <Link to="/termos" className="hover:text-clay">
+            termos
+          </Link>
+          <Link to="/privacidade" className="hover:text-clay">
+            privacidade
+          </Link>
         </div>
       </div>
     </main>

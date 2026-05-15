@@ -10,6 +10,7 @@ import { FaqRoute } from '@/routes/faq';
 import { LandingRoute } from '@/routes/landing';
 import { PerfilRoute } from '@/routes/perfil';
 import { PrivacidadeRoute } from '@/routes/privacidade';
+import { ProfessorLiveRoute } from '@/routes/professor-live';
 import { TermosRoute } from '@/routes/termos';
 import { PlanosRoute } from '@/routes/planos';
 import { ReservarRoute } from '@/routes/reservar';
@@ -63,6 +64,14 @@ export default function App() {
           <Route path="/planos" element={<ProtectedRoute><PlanosRoute /></ProtectedRoute>} />
           <Route path="/admin" element={<ProtectedRoute requiredRole="ADMIN"><AdminRoute /></ProtectedRoute>} />
           <Route path="/professor" element={<ProtectedRoute><ProfessorRoute /></ProtectedRoute>} />
+          <Route
+            path="/professor/aula/:slotId"
+            element={
+              <ProtectedRoute>
+                <ProfessorLiveRoute />
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </BrowserRouter>
     </QueryClientProvider>

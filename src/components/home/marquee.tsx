@@ -16,7 +16,7 @@ export function Marquee() {
   const items = [
     bikePerk,
     'Pé na areia, sem calçado',
-    'Cancele até 8h antes',
+    'Cancele aulas até 8h antes',
     'Pix com 5% de desconto',
     'Sem fidelidade',
   ];

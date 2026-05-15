@@ -314,8 +314,6 @@ function packCard(
     isAvulso
       ? '1 aula a sua escolha'
       : `${offer.classes} aulas em ${offer.expirationDays} dias`,
-    'Reserva da bike no site',
-    'Toalha e ducha',
     pixDiscountPercent > 0
       ? `${pixDiscountPercent}% off pagando no Pix`
       : 'Pagamento Pix, crédito ou débito',
@@ -362,7 +360,6 @@ function planCard(
     : `${plan.monthlyCredits} aulas/mês · cobrança mensal`;
   const bullets = [
     ilimitado ? 'Aulas ilimitadas' : `${plan.monthlyCredits} aulas no mês`,
-    'Reserva 7 dias antes',
     'Recibo no seu e-mail',
     'Cancele quando quiser',
   ];

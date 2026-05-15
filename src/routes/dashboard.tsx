@@ -17,6 +17,8 @@ import {
   HealthGateBanner,
 } from '@/components/common';
 import { AmigosSection } from '@/components/dashboard/amigos-section';
+import { HelpFab, HelpSheet } from '@/components/onboarding/help-fab';
+import { OnboardingTour } from '@/components/onboarding/tour';
 import { Hello } from '@/components/dashboard/hello';
 import { HistoricoSection } from '@/components/dashboard/historico-section';
 import { KPIs } from '@/components/dashboard/kpis';
@@ -57,6 +59,28 @@ export function DashboardRoute() {
   const [pendingAbsenceId, setPendingAbsenceId] = useState<string | null>(
     null,
   );
+
+  // Onboarding tour + help UI. Tour auto-opens on first dashboard load when
+  // `me.hasSeenOnboarding === false`. The HelpSheet is the bottom-sheet
+  // triggered by the FAB and by the Footer "ajuda" link; "rever tour" from
+  // the sheet reopens the tour without touching the backend flag.
+  const [tourOpen, setTourOpen] = useState(false);
+  const [helpOpen, setHelpOpen] = useState(false);
+  const [autoTourTriggered, setAutoTourTriggered] = useState(false);
+  useEffect(() => {
+    if (
+      !autoTourTriggered &&
+      meQ.data &&
+      meQ.data.role === 'USER' &&
+      !meQ.data.hasSeenOnboarding
+    ) {
+      // Defer one tick so the user sees the dashboard frame land before the
+      // tour overlay slides in — less jarring than appearing pre-paint.
+      const t = setTimeout(() => setTourOpen(true), 350);
+      setAutoTourTriggered(true);
+      return () => clearTimeout(t);
+    }
+  }, [meQ.data, autoTourTriggered]);
 
   // Tick that drives time-based re-evaluation of `pickNextReservation`
   // so a class transitions "próxima → ao vivo" without a refresh. 30s
@@ -219,9 +243,29 @@ export function DashboardRoute() {
         <span>© 2026 bikebeach · balneário camboriú</span>
         <div className="flex gap-5">
           <a href="/">home</a>
-          <a href="#">ajuda</a>
+          <button
+            type="button"
+            onClick={() => setHelpOpen(true)}
+            className="hover:text-ink"
+          >
+            ajuda
+          </button>
         </div>
       </footer>
+
+      {/* Help UX — FAB always visible on mobile, sheet shared with footer.
+          "rever tour" reopens the tour overlay without touching the backend
+          flag (the flag stays true once the user has seen it once). */}
+      <HelpFab onClick={() => setHelpOpen(true)} />
+      <HelpSheet
+        open={helpOpen}
+        onClose={() => setHelpOpen(false)}
+        onReplayTour={() => {
+          setHelpOpen(false);
+          setTourOpen(true);
+        }}
+      />
+      <OnboardingTour open={tourOpen} onClose={() => setTourOpen(false)} />
 
       {/* Cancel-reservation modals — type depends on whether the action
           will refund the credit (ConfirmModal) or burn it (DoubleConsent). */}

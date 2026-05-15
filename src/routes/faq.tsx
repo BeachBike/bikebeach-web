@@ -94,7 +94,9 @@ export function FaqRoute() {
 
   return (
     <div className="min-h-svh overflow-x-hidden bg-cream text-ink">
-      <Nav />
+      {/* FAQ é página estática sem as seções da Home — `variant="minimal"`
+          esconde os anchors que iriam pra âncoras inexistentes aqui. */}
+      <Nav variant="minimal" />
 
       {/* ── Hero ───────────────────────────────────────────────── */}
       <header className="relative px-7 pb-16 pt-[150px]">

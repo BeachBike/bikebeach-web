@@ -68,7 +68,6 @@ export function CheckoutSummary({
       </div>
 
       <div className="mt-4 flex gap-2.5 rounded-xl bg-cream px-3.5 py-3 text-xs leading-snug text-ink-2">
-        <span className="text-sm font-bold text-sea">🔒</span>
         <span>
           pagamento processado pela <b>asaas</b>. seus dados não passam pelo
           nosso servidor.

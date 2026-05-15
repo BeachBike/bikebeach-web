@@ -281,3 +281,171 @@
 .bb-breathe {
   animation: bb-breathe 9s ease-in-out infinite;
 }
+
+/* ===== Onboarding tour animations =====
+   Each step's animation is self-contained so navigating between steps
+   (which re-mounts the step via React `key`) restarts the demo from frame 0. */
+
+/* Bike-picker step — each bike pops into place; the staggered delay is set
+   inline (style="animation-delay: Xms") so 32 bikes land in a wave. */
+@keyframes tour-bike-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0) rotate(-12deg);
+  }
+  60% {
+    opacity: 1;
+    transform: scale(1.15) rotate(2deg);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) rotate(0);
+  }
+}
+
+/* The chosen bike on the picker — a soft halo + scale beat to draw the eye. */
+@keyframes tour-bike-chosen {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgba(216, 93, 52, 0);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(216, 93, 52, 0);
+    transform: scale(1.12);
+  }
+  10% {
+    box-shadow: 0 0 0 0 rgba(216, 93, 52, 0.55);
+  }
+}
+
+/* Tap ripple ring around the picked bike — concentric outward pulse that
+   replaces a literal "finger" figure. */
+@keyframes tour-tap {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.9;
+  }
+  80%,
+  100% {
+    transform: scale(1.6);
+    opacity: 0;
+  }
+}
+
+/* 8h clock — hand sweeps. */
+@keyframes tour-clock-sweep {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* The flag that swaps between "crédito volta" (safe) and "perde crédito"
+   (danger) every half-cycle. Two flags are stacked; their opacities
+   alternate so only one is visible at a time. */
+@keyframes tour-flag-safe {
+  0%,
+  45%,
+  100% {
+    opacity: 1;
+  }
+  50%,
+  95% {
+    opacity: 0;
+  }
+}
+
+@keyframes tour-flag-danger {
+  0%,
+  45%,
+  100% {
+    opacity: 0;
+  }
+  50%,
+  95% {
+    opacity: 1;
+  }
+}
+
+/* Waitlist — queue shifts forward; the user (pos 3) advances; a chosen
+   bike fills in when they're promoted. The whole cycle loops. */
+@keyframes tour-queue-shift {
+  0%,
+  20% {
+    transform: translateY(0);
+  }
+  35%,
+  100% {
+    transform: translateY(-58px);
+  }
+}
+
+@keyframes tour-queue-leave {
+  0%,
+  15% {
+    opacity: 1;
+    transform: translateX(0);
+  }
+  30%,
+  100% {
+    opacity: 0;
+    transform: translateX(48px);
+  }
+}
+
+@keyframes tour-promoted-pop {
+  0%,
+  55% {
+    opacity: 0;
+    transform: scale(0.7);
+  }
+  70% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  85%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Credits — chips float in then a timer bar fills, signaling expiry. */
+@keyframes tour-credit-float {
+  0% {
+    opacity: 0;
+    transform: translateY(14px) scale(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes tour-credit-bar-fill {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+@keyframes tour-cycle-reset {
+  0%,
+  85% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  90% {
+    opacity: 0.3;
+    transform: scale(0.85);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
