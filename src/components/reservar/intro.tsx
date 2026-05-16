@@ -56,7 +56,7 @@ export function Intro({ userName, packs, onStart }: Props) {
         <h1
           className="display-tight text-ink"
           style={{
-            fontSize: 'clamp(56px, 10vw, 124px)',
+            fontSize: 'clamp(34px, 10vw, 124px)',
             lineHeight: 0.88,
             letterSpacing: '-0.04em',
           }}

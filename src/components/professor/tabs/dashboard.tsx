@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import {
   type AdminClassSlot,
+  type ClassKindColor,
   useAdminClassSlots,
 } from '@/api/admin';
 import type { Me } from '@/api/me';
@@ -84,7 +85,7 @@ export function DashboardTab({
         <div className="text-sm font-semibold text-clay">{greetWord},</div>
         <div
           className="display-tight mt-1.5 leading-[.92]"
-          style={{ fontSize: 'clamp(48px, 8vw, 92px)' }}
+          style={{ fontSize: 'clamp(28px, 8vw, 92px)' }}
         >
           {meFirstName}.
           <br />
@@ -271,7 +272,7 @@ function LiveClassCard({
             </div>
             <div
               className="display-tight mt-2 leading-[.95]"
-              style={{ fontSize: 'clamp(36px,5vw,60px)' }}
+              style={{ fontSize: 'clamp(24px,5vw,60px)' }}
             >
               {slot.classKind?.name ?? slot.title ?? 'aula em andamento'}
             </div>
@@ -402,7 +403,7 @@ function NextClassCard({
           </div>
           <div
             className="display-tight mt-2 leading-[.95]"
-            style={{ fontSize: 'clamp(36px,5vw,52px)' }}
+            style={{ fontSize: 'clamp(24px,5vw,52px)' }}
           >
             {slot.classKind?.name ?? slot.title ?? 'aula'}
           </div>
@@ -413,8 +414,8 @@ function NextClassCard({
         <div
           className="grid size-16 place-items-center rounded-2xl"
           style={{
-            background: chipBg(slot.classKind?.tone ?? ''),
-            color: chipFg(slot.classKind?.tone ?? ''),
+            background: chipBg(slot.classKind?.colorToken),
+            color: chipFg(slot.classKind?.colorToken),
           }}
         >
           <span className="display-tight mono text-[20px] leading-none">
@@ -547,7 +548,7 @@ function SlotRow({
       <div className="flex items-center gap-2.5">
         <span
           className="size-2.5 rounded-xs"
-          style={{ background: chipBg(slot.classKind?.tone ?? '') }}
+          style={{ background: chipBg(slot.classKind?.colorToken) }}
         />
         <span className="display-tight text-[18px]">
           {slot.classKind?.name ?? slot.title ?? 'aula'}
@@ -602,23 +603,28 @@ const STATUS_BADGE: Record<
   },
 };
 
-function chipBg(tone: string) {
-  const t = tone.toLowerCase();
-  if (t.includes('sun') || t.includes('amarelo') || t.includes('almoço'))
-    return 'var(--color-sun)';
-  if (t.includes('clay') || t.includes('forte') || t.includes('pôr'))
-    return 'var(--color-clay)';
-  if (t.includes('ink') || t.includes('noturno') || t.includes('noite'))
-    return 'var(--color-ink)';
-  if (t.includes('sand')) return 'var(--color-sand-2)';
-  return 'var(--color-sea)';
+/// Class color comes from the admin-picked `colorToken` (design-system
+/// token), NOT a fuzzy match on the free-text `tone` "vibe" field — the
+/// old heuristic mismatched (e.g. GREEN never resolved) and most kinds
+/// fell through to SEA. Mirrors the reservation palco / create-class map.
+const CHIP_BG: Record<ClassKindColor, string> = {
+  CLAY: 'var(--color-clay)',
+  SUN: 'var(--color-sun)',
+  SEA: 'var(--color-sea)',
+  SAND: 'var(--color-sand-2)',
+  INK: 'var(--color-ink)',
+  GREEN: 'var(--color-success)',
+};
+
+function chipBg(token: ClassKindColor | null | undefined) {
+  return (token && CHIP_BG[token]) || 'var(--color-sea)';
 }
 
-function chipFg(tone: string) {
-  const t = tone.toLowerCase();
-  if (t.includes('sun') || t.includes('sand') || t.includes('amarelo'))
-    return 'var(--color-ink)';
-  return 'var(--color-cream)';
+/// SUN / SAND are light fills → dark text; the rest take cream text.
+function chipFg(token: ClassKindColor | null | undefined) {
+  return token === 'SUN' || token === 'SAND'
+    ? 'var(--color-ink)'
+    : 'var(--color-cream)';
 }
 
 function isLive(slot: AdminClassSlot, now: Date) {

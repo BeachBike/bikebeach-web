@@ -434,8 +434,8 @@ function ClassKindFormDrawer({
               value={intensity.toString()}
               onChange={(e) => setIntensity(parseInt(e.target.value, 10))}
             >
-              <option value="1">1 (muito leve)</option>
-              <option value="2">2 (leve)</option>
+              <option value="1">1 (muito fraco)</option>
+              <option value="2">2 (fraco)</option>
               <option value="3">3 (média)</option>
               <option value="4">4 (forte)</option>
               <option value="5">5 (muito forte)</option>

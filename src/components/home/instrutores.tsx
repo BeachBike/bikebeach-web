@@ -14,12 +14,12 @@ export function Instrutores() {
   return (
     <section
       id="instrutores"
-      className="bg-cream-2 px-7 pb-[120px] pt-[120px]"
+      className="bg-cream-2 px-7 pb-20 pt-20 sm:pb-[120px] sm:pt-[120px]"
     >
       <div className="mb-14 flex flex-wrap items-end justify-between gap-5">
         <h2
           className="display-tight"
-          style={{ fontSize: 'clamp(56px,9vw,140px)', lineHeight: 0.92 }}
+          style={{ fontSize: 'clamp(34px,9vw,140px)', lineHeight: 0.92 }}
         >
           A galera que
           <br />

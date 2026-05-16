@@ -15,7 +15,7 @@ export function Hero() {
     : 'frota ancorada na areia';
 
   return (
-    <section className="relative min-h-screen px-7 pb-16 pt-[140px]">
+    <section className="relative px-7 pb-12 pt-28 sm:min-h-screen sm:pb-16 sm:pt-[140px]">
       <div
         aria-hidden
         className="bb-breathe pointer-events-none absolute right-[-160px] top-[120px] z-0 h-[520px] w-[520px] rounded-full opacity-85"
@@ -28,8 +28,8 @@ export function Hero() {
 
       <div className="relative z-10">
         <h1
-          className="display max-w-[95%] text-ink"
-          style={{ fontSize: 'clamp(72px, 13vw, 220px)', lineHeight: 0.86 }}
+          className="display max-w-[95%] text-ink text-[clamp(30px,8.5vw,52px)] sm:text-[clamp(72px,13vw,220px)]"
+          style={{ lineHeight: 0.9 }}
         >
           pedale com o
           <br />
@@ -38,7 +38,7 @@ export function Hero() {
           no peito.
         </h1>
 
-        <div className="mt-12 grid items-end gap-10 md:grid-cols-[1.1fr_.8fr_1fr]">
+        <div className="mt-7 grid items-end gap-6 sm:mt-12 sm:gap-10 md:grid-cols-[1.1fr_.8fr_1fr]">
           <p className="max-w-[480px] text-lg font-normal leading-snug text-ink-2 md:text-xl">
             Spinning na faixa de areia, em Balneário Camboriú. {fleetLine},
             vento batendo, instrutor gritando playlist e o oceano logo ali.
@@ -64,7 +64,7 @@ export function Hero() {
             <img
               src={SpinningBcImg}
               alt="arena na areia, gente pedalando ao pôr do sol"
-              className="w-full rounded-[14px] object-cover"
+              className="max-h-[220px] w-full rounded-[14px] object-cover sm:max-h-none"
               style={{ aspectRatio: '5/4' }}
             />
           </div>

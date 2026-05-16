@@ -443,7 +443,10 @@ function Field({
 
 function fieldCls(hasError: boolean): string {
   return [
-    'rounded-xl border-[1.5px] bg-cream px-3.5 py-3 text-sm outline-none transition-colors',
+    // text-base (16px) on mobile prevents iOS Safari's focus auto-zoom on
+    // a payment form (any <16px input triggers it); compact text-sm on
+    // sm+ where the zoom behaviour doesn't apply.
+    'rounded-xl border-[1.5px] bg-cream px-3.5 py-3 text-base outline-none transition-colors sm:text-sm',
     hasError
       ? 'border-clay-d focus:border-clay-d'
       : 'border-sand focus:border-ink',

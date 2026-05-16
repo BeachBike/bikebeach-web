@@ -282,6 +282,25 @@
   animation: bb-breathe 9s ease-in-out infinite;
 }
 
+/* Palco card ambient glow — the class-kind accent color slowly breathes
+   so the instructor card feels alive without distracting from the bike
+   picker. Opacity + scale only (no movement) so text stays legible. */
+@keyframes palco-glow {
+  0%,
+  100% {
+    opacity: 0.28;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.55;
+    transform: scale(1.14);
+  }
+}
+.palco-glow {
+  animation: palco-glow 5s ease-in-out infinite;
+  will-change: opacity, transform;
+}
+
 /* ===== Onboarding tour animations =====
    Each step's animation is self-contained so navigating between steps
    (which re-mounts the step via React `key`) restarts the demo from frame 0. */
@@ -447,5 +466,102 @@
   100% {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* ============================================================
+   Arena (step-2 bike picker) — wave invading the sand.
+   Ported from the design prototype (reservar.html). A 9s loop:
+   the sea scales up and washes onto the sand, wet-sand brightens,
+   foam fades in, splash bubbles peak around the break, then it
+   all recedes. Pure CSS / GPU transforms — cheap on mobile.
+   ============================================================ */
+@keyframes arena-wave {
+  0% { transform: scaleY(1); }
+  35% { transform: scaleY(1.3); }
+  69% { transform: scaleY(1); }
+  100% { transform: scaleY(1); }
+}
+@keyframes arena-wetsand {
+  0% { opacity: 0.2; }
+  34% { opacity: 0.2; }
+  35% { opacity: 0.7; }
+  100% { opacity: 0.2; }
+}
+@keyframes arena-seafoam {
+  0% { opacity: 0; }
+  30% { opacity: 1; }
+  50% { opacity: 0; }
+  100% { opacity: 0; }
+}
+@keyframes arena-splash1 {
+  0%, 28% { opacity: 0; }
+  34%, 42% { opacity: 0.95; }
+  50% { opacity: 0.45; }
+  58%, 100% { opacity: 0; }
+}
+@keyframes arena-splash2 {
+  0%, 30% { opacity: 0; }
+  37%, 44% { opacity: 1; }
+  52% { opacity: 0.3; }
+  62%, 100% { opacity: 0; }
+}
+@keyframes arena-splash3 {
+  0%, 32% { opacity: 0; }
+  39%, 46% { opacity: 0.85; }
+  54% { opacity: 0.55; }
+  60%, 100% { opacity: 0; }
+}
+@keyframes arena-splash-sand {
+  0%, 38% { opacity: 0; }
+  46%, 60% { opacity: 0.8; }
+  72% { opacity: 0.35; }
+  82%, 100% { opacity: 0; }
+}
+/* Accessibility: kill the wave loop when the user asked for less motion.
+   Scoped to `.arena-anim` so unrelated animations are untouched. The
+   stylesheet `!important` beats the inline `animation` shorthand. */
+@media (prefers-reduced-motion: reduce) {
+  .arena-anim,
+  .palco-glow {
+    animation: none !important;
+  }
+}
+
+/* ============================================================
+   Reservar — schedule slot card (step-aula SlotRow).
+   Desktop keeps the single-line 4-column layout. Mobile reflows
+   to two areas so the title + meta stop getting squeezed by the
+   time / status / arrow columns: row 1 = time · main · arrow,
+   row 2 = the status/CTA as its own full-width strip.
+   ============================================================ */
+.slotrow {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas:
+    'time main arrow'
+    'status status status';
+  column-gap: 12px;
+  row-gap: 12px;
+  align-items: center;
+}
+.slotrow > .sr-time {
+  grid-area: time;
+}
+.slotrow > .sr-main {
+  grid-area: main;
+  min-width: 0;
+}
+.slotrow > .sr-status {
+  grid-area: status;
+}
+.slotrow > .sr-arrow {
+  grid-area: arrow;
+}
+@media (min-width: 640px) {
+  .slotrow {
+    grid-template-columns: 96px minmax(0, 1fr) auto auto;
+    grid-template-areas: 'time main status arrow';
+    column-gap: 16px;
   }
 }

@@ -77,8 +77,18 @@ export function useConfirmStart() {
 
 /// AO VIVO live tap — flip a single reservation between presente and
 /// ausente as the professor taps a bike on the live screen. Each call
-/// commits immediately (no batch). Cache invalidation refreshes the
-/// roster + the admin slot list so counters stay in sync.
+/// commits immediately (no batch).
+///
+/// **Optimistic** by design: the roster cache is patched the moment the
+/// tap fires, before the network roundtrip resolves. Two reasons:
+///   1. Studio Wi-Fi can be slow; a 400 ms wait on every tap kills the
+///      "rapid attendance pass" UX the live screen exists for.
+///   2. If the backend ever rejects the toggle (e.g. a stale dev server
+///      still running the pre-2026-05 lock), the rollback flicker makes
+///      the failure visible instead of letting it look like "the tap did
+///      nothing" — which is the historic reported symptom.
+/// `onSettled` invalidates so the optimistic patch is reconciled with
+/// whatever the server actually persisted.
 export function useToggleCheckIn() {
   const qc = useQueryClient();
   return useMutation({
@@ -97,7 +107,51 @@ export function useToggleCheckIn() {
           { reservationId, present },
         )
         .then((r) => r.data),
-    onSuccess: (_data, vars) => {
+    onMutate: async ({ slotId, reservationId, present }) => {
+      const rosterKey = ['professor', 'roster', slotId];
+      await qc.cancelQueries({ queryKey: rosterKey });
+      const previous = qc.getQueryData<SlotRoster>(rosterKey);
+      if (previous) {
+        const nextStatus: RosterStudent['status'] = present
+          ? 'CHECKED_IN'
+          : 'NO_SHOW';
+        qc.setQueryData<SlotRoster>(rosterKey, {
+          ...previous,
+          students: previous.students.map((s) =>
+            s.reservationId === reservationId
+              ? {
+                  ...s,
+                  status: nextStatus,
+                  // Tag instructor-marked so `isInstructorMarkedNoShow`
+                  // keeps the cell tappable (back-to-present) instead of
+                  // locking it as if the user had self-marked.
+                  cancellationReason: present
+                    ? null
+                    : INSTRUCTOR_NO_SHOW_PREFIX,
+                  checkedInAt: present
+                    ? new Date().toISOString()
+                    : s.checkedInAt,
+                }
+              : s,
+          ),
+        });
+      }
+      return { previous, rosterKey };
+    },
+    onError: (_err, _vars, ctx) => {
+      // Rollback to the snapshot taken in onMutate. Any error here is
+      // either a permission/state issue (e.g. user-marked NO_SHOW that
+      // shouldn't have been tappable) or a stale backend — the user
+      // immediately sees the cell snap back, which is the right signal.
+      if (ctx?.previous) {
+        qc.setQueryData(ctx.rosterKey, ctx.previous);
+      }
+    },
+    onSettled: (_data, _err, vars) => {
+      // Always reconcile with the server's truth, even after a successful
+      // optimistic patch — in case the backend chose a different status
+      // (e.g. ACTIVE instead of NO_SHOW on an old build) we don't want a
+      // permanently wrong cache.
       qc.invalidateQueries({
         queryKey: ['professor', 'roster', vars.slotId],
       });

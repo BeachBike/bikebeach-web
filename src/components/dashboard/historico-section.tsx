@@ -230,7 +230,10 @@ export function HistoricoSection({ reservations }: Props) {
       </div>
 
       <div className="mt-8">
-        <h2 className="display-tight mb-3.5" style={{ fontSize: 36 }}>
+        <h2
+          className="display-tight mb-3.5"
+          style={{ fontSize: 'clamp(24px,5vw,36px)' }}
+        >
           histórico de aulas
         </h2>
         {past.length === 0 ? (

@@ -50,7 +50,7 @@ export function NextClass({
           </div>
           <div
             className="display-tight mt-3.5"
-            style={{ fontSize: 'clamp(40px, 6vw, 80px)', lineHeight: 0.92 }}
+            style={{ fontSize: 'clamp(26px, 6vw, 80px)', lineHeight: 0.92 }}
           >
             que tal
             <br />
@@ -108,7 +108,7 @@ export function NextClass({
         </div>
         <div
           className="display-tight mt-3.5"
-          style={{ fontSize: 'clamp(40px, 6vw, 80px)', lineHeight: 0.92 }}
+          style={{ fontSize: 'clamp(26px, 6vw, 80px)', lineHeight: 0.92 }}
         >
           {titulo}
           <br />

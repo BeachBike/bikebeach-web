@@ -11,7 +11,7 @@ export function Hello({ name }: Props) {
       <div className="text-sm font-semibold text-clay">{greet},</div>
       <h1
         className="display-tight mt-1.5"
-        style={{ fontSize: 'clamp(48px, 8vw, 88px)', lineHeight: 0.92 }}
+        style={{ fontSize: 'clamp(28px, 8vw, 88px)', lineHeight: 0.92 }}
       >
         {firstName(name) || 'ciclista'}.
         <br />

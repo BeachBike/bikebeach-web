@@ -44,7 +44,7 @@ export function CheckoutSuccess({
       </div>
       <div
         className="display mt-6"
-        style={{ fontSize: 'clamp(56px,8vw,88px)', lineHeight: 0.9 }}
+        style={{ fontSize: 'clamp(34px,8vw,88px)', lineHeight: 0.9 }}
       >
         {title.split(' ')[0]}
         <br />

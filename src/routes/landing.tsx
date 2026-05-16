@@ -1,3 +1,4 @@
+import { ArenaPicker } from '@/components/common/arena-picker';
 import { Arena } from '@/components/home/arena';
 import { Aulas } from '@/components/home/aulas';
 import { Como } from '@/components/home/como';
@@ -26,6 +27,14 @@ export function LandingRoute() {
       <Arena />
       <CTA />
       <Footer />
+
+      {/* Mobile-only floating arena picker. The nav is too tight on phones
+          to also hold the picker, so it lives here as a bottom-left chip
+          that follows the scroll. Opens upward + left-aligned so the menu
+          stays on-screen. Renders nothing when there's a single arena. */}
+      <div className="fixed bottom-4 left-4 z-40 md:hidden">
+        <ArenaPicker variant="nav" floating openUp alignLeft />
+      </div>
     </div>
   );
 }

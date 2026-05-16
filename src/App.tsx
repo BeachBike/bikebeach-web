@@ -20,6 +20,7 @@ import { ProfessorRoute } from '@/routes/professor';
 import { ArenaGuard } from '@/components/common/arena-guard';
 import { ProtectedRoute } from '@/components/common/protected-route';
 import { ScrollToTop } from '@/components/common/scroll-to-top';
+import { useUserRealtime } from '@/hooks/use-realtime';
 
 // Force the api client to register its interceptors at app boot.
 import '@/api/client';
@@ -34,12 +35,22 @@ const queryClient = new QueryClient({
   },
 });
 
+/// Mounts the authenticated user channel (`waitlist:promoted`,
+/// `class:cancelled`) once at app root. Renders nothing — it's pure side
+/// effect. Lives inside `<QueryClientProvider>` because the hook uses
+/// `useQueryClient` to invalidate caches on push.
+function RealtimeBridge() {
+  useUserRealtime();
+  return null;
+}
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <BrowserRouter>
         <ScrollToTop />
         <ArenaGuard />
+        <RealtimeBridge />
         <Routes>
           <Route path="/" element={<LandingRoute />} />
           <Route path="/faq" element={<FaqRoute />} />

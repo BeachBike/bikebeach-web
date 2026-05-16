@@ -103,10 +103,13 @@ export function Planos() {
   }, [packsData, plansData, pixDiscountPercent]);
 
   return (
-    <section id="planos" className="px-7 pb-[120px] pt-[140px]">
+    <section
+      id="planos"
+      className="px-7 pb-20 pt-24 sm:pb-[120px] sm:pt-[140px]"
+    >
       <h2
         className="display-tight max-w-[1300px]"
-        style={{ fontSize: 'clamp(56px,9vw,140px)', lineHeight: 0.92 }}
+        style={{ fontSize: 'clamp(34px,9vw,140px)', lineHeight: 0.92 }}
       >
         Pague <span className="font-normal italic text-clay">como</span>{' '}
         quiser.
@@ -196,8 +199,8 @@ export function Planos() {
                     <div className="mt-7 flex items-start gap-1.5">
                       <span className="mt-3.5 text-2xl font-semibold">R$</span>
                       <span
-                        className="display font-medium"
-                        style={{ fontSize: 96, lineHeight: 0.9 }}
+                        className="display font-medium text-[64px] sm:text-[96px]"
+                        style={{ lineHeight: 0.9 }}
                       >
                         {formatCents(card.pricePerClassCents)
                           .replace('R$', '')
@@ -224,8 +227,8 @@ export function Planos() {
                     <div className="mt-7 flex items-start gap-1.5">
                       <span className="mt-3.5 text-2xl font-semibold">R$</span>
                       <span
-                        className="display font-medium"
-                        style={{ fontSize: 96, lineHeight: 0.9 }}
+                        className="display font-medium text-[64px] sm:text-[96px]"
+                        style={{ lineHeight: 0.9 }}
                       >
                         {formatCents(
                           card.discount?.discountedCents ?? card.priceCents,

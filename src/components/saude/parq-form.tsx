@@ -305,7 +305,7 @@ export function ParqForm({
                 value={notes}
                 onChange={(e) => setNotes(e.target.value)}
                 placeholder="ex: lesão antiga no joelho, asma controlada, gestante…"
-                className="w-full resize-y rounded-[10px] border-[1.5px] border-sand bg-cream px-3.5 py-3 text-sm transition-colors focus:border-ink focus:bg-white focus:outline-none"
+                className="w-full resize-y rounded-[10px] border-[1.5px] border-sand bg-cream px-3.5 py-3 text-base transition-colors focus:border-ink focus:bg-white focus:outline-none sm:text-sm"
               />
             </div>
 

@@ -71,7 +71,7 @@ export function SaudeRoute() {
         </div>
         <h1
           className="display-tight mt-3"
-          style={{ fontSize: 'clamp(40px,6vw,72px)', lineHeight: 0.92 }}
+          style={{ fontSize: 'clamp(28px,6vw,72px)', lineHeight: 0.92 }}
         >
           antes de pedalar,
           <br />

@@ -164,8 +164,8 @@ export function SignupRoute() {
       <ContaShell mode="cadastro">
         <div className="flex min-h-[520px] flex-col justify-center gap-4 px-2 pt-10 lg:px-2">
           <div
-            className="display"
-            style={{ fontSize: 80, lineHeight: 0.9 }}
+            className="display text-[clamp(44px,13vw,80px)]"
+            style={{ lineHeight: 0.9 }}
           >
             tá
             <br />

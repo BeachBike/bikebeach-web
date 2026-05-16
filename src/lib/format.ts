@@ -66,11 +66,22 @@ export function relativeDayLabel(iso: string): string {
   return WEEKDAY_PT[d.getDay()] ?? '';
 }
 
+/// Maps the 1–5 class-kind intensity to its named pegada level. The five
+/// levels are the canonical vocabulary across the app (card meter, admin
+/// form, schedule). Null / 0 falls back to the middle ("média").
 export function intensityLabel(intensity: number | null | undefined): string {
-  if (!intensity) return 'média';
-  if (intensity <= 2) return 'leve';
-  if (intensity === 3) return 'média';
-  return 'forte';
+  switch (Math.min(5, Math.max(1, Math.round(intensity ?? 3)))) {
+    case 1:
+      return 'muito fraco';
+    case 2:
+      return 'fraco';
+    case 3:
+      return 'média';
+    case 4:
+      return 'forte';
+    default:
+      return 'muito forte';
+  }
 }
 
 export function formatCents(cents: number): string {

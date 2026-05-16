@@ -114,7 +114,7 @@ export function StepAula({
       </div>
       <h2
         className="display-tight mt-3"
-        style={{ fontSize: 'clamp(40px,6vw,72px)', lineHeight: 0.92 }}
+        style={{ fontSize: 'clamp(28px,6vw,72px)', lineHeight: 0.92 }}
       >
         que horas
         <br />
@@ -245,6 +245,11 @@ function SlotRow({
   // Three "special" states show a static card with an inline action instead
   // of being clickable as a whole. Standard cards remain clickable buttons.
   const lockedReservation = !!mine && !mine.canEditBike;
+  // The user already has this slot AND it's still outside the 8h window —
+  // tapping the card swaps the bike. This state gets its own clay treatment
+  // (accent border + "sua reserva" badge + a real CTA) instead of cramming
+  // "você está reservada · trocar bike →" into the gray meta line.
+  const editableReservation = !!mine && mine.canEditBike;
   const onWaitlist = !!queue && !mine;
   const useStaticCard = lockedReservation || onWaitlist;
   const disabled = unavailable || useStaticCard;
@@ -253,12 +258,16 @@ function SlotRow({
     ? 'var(--color-sun)'
     : onWaitlist
       ? 'var(--color-sea)'
-      : null;
+      : editableReservation
+        ? 'var(--color-clay)'
+        : null;
   const accentBg = lockedReservation
     ? 'rgba(242,166,90,0.08)'
     : onWaitlist
       ? 'rgba(45,106,106,0.08)'
-      : null;
+      : editableReservation
+        ? 'rgba(216,93,52,0.07)'
+        : null;
 
   const Wrapper = useStaticCard ? 'div' : 'button';
 
@@ -271,9 +280,8 @@ function SlotRow({
             onClick: () => !disabled && onSelect(slot),
             disabled,
           })}
-      className="grid items-center gap-4 overflow-hidden rounded-2xl border-[1.5px] px-5 py-5 text-left transition-all"
+      className="slotrow overflow-hidden rounded-2xl border-[1.5px] px-4 py-4 text-left transition-all sm:px-5 sm:py-5"
       style={{
-        gridTemplateColumns: '96px 1fr auto auto',
         borderColor:
           accentColor ??
           (selected ? 'var(--color-ink)' : 'var(--color-sand)'),
@@ -294,10 +302,8 @@ function SlotRow({
       }}
     >
       <div
-        className="display-tight mono"
+        className="sr-time display-tight mono text-[26px] leading-none sm:text-[32px]"
         style={{
-          fontSize: 32,
-          lineHeight: 1,
           color: selected
             ? 'var(--color-clay)'
             : unavailable
@@ -308,16 +314,30 @@ function SlotRow({
         {formatHourMinute(slot.startsAt)}
       </div>
 
-      <div>
+      <div className="sr-main">
         <div
-          className="display-tight flex flex-wrap items-center gap-3"
+          className="display-tight flex flex-wrap items-center gap-x-3 gap-y-2 text-[20px] leading-[1.05] sm:text-[24px]"
           style={{
-            fontSize: 24,
-            lineHeight: 1.05,
             color: unavailable ? 'var(--color-ink-2)' : 'inherit',
           }}
         >
           <span>{titulo}</span>
+          {editableReservation && (
+            <span
+              className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-[11px] font-bold uppercase tracking-wide"
+              style={{
+                background: 'var(--color-clay)',
+                color: 'var(--color-cream)',
+                letterSpacing: '.06em',
+              }}
+            >
+              <span
+                className="inline-block h-1.5 w-1.5 rounded-full"
+                style={{ background: 'var(--color-cream)' }}
+              />
+              sua reserva
+            </span>
+          )}
           {friends.length > 0 && (
             <span
               className="inline-flex items-center"
@@ -363,20 +383,14 @@ function SlotRow({
           <span className="font-semibold text-ink">
             {slot.unit.name.toLowerCase()}
           </span>
-          {mine && (
+          {lockedReservation && (
             <>
               <span>·</span>
               <span
                 className="font-semibold"
-                style={{
-                  color: mine.canEditBike
-                    ? 'var(--color-clay)'
-                    : 'var(--color-sun)',
-                }}
+                style={{ color: 'var(--color-sun)' }}
               >
-                {mine.canEditBike
-                  ? 'você está reservada · trocar bike →'
-                  : 'você está reservada · só dá pra cancelar'}
+                você está reservada · só dá pra cancelar
               </span>
             </>
           )}
@@ -394,7 +408,7 @@ function SlotRow({
         </div>
       </div>
 
-      <div className="flex flex-col items-end gap-1">
+      <div className="sr-status flex flex-col items-start gap-1 border-t border-sand/70 pt-3 sm:items-end sm:border-t-0 sm:pt-0">
         {lockedReservation && mine ? (
           // Reservation already exists AND inside the 8h window. The card
           // is otherwise locked — only action is the (lossy) cancel.
@@ -423,6 +437,22 @@ function SlotRow({
           >
             {isLeavingWaitlist ? 'saindo…' : 'sair da fila'}
           </button>
+        ) : editableReservation ? (
+          // Whole card is the click target (swaps the bike). This is just
+          // the affordance — a pill that reads as the primary action.
+          <span
+            className="inline-flex items-center rounded-full px-4 py-2.5 text-[13px] font-bold transition-colors"
+            style={{
+              background: selected
+                ? 'var(--color-clay)'
+                : 'rgba(216,93,52,0.12)',
+              color: selected
+                ? 'var(--color-cream)'
+                : 'var(--color-clay-d)',
+            }}
+          >
+            trocar bike
+          </span>
         ) : past ? (
           <span
             className="display-tight mono text-ink-2"
@@ -473,7 +503,7 @@ function SlotRow({
       </div>
 
       <div
-        className="grid h-9 w-9 place-items-center rounded-full text-base transition-all"
+        className="sr-arrow grid h-9 w-9 place-items-center self-center rounded-full text-base transition-all"
         style={{
           background: selected ? 'var(--color-clay)' : 'transparent',
           border: selected ? '0' : '1.5px solid var(--color-sand)',

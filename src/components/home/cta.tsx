@@ -6,7 +6,7 @@ export function CTA() {
   return (
     <section
       id="reservar"
-      className="relative overflow-hidden bg-clay px-7 pb-24 pt-[140px] text-cream"
+      className="relative overflow-hidden bg-clay px-7 pb-20 pt-24 text-cream sm:pb-24 sm:pt-[140px]"
     >
       {/* Decorative sun in the corner */}
       <div
@@ -20,8 +20,8 @@ export function CTA() {
 
       <div className="relative">
         <h2
-          className="display font-medium text-cream"
-          style={{ fontSize: 'clamp(96px,18vw,320px)', lineHeight: 0.82 }}
+          className="display font-medium text-cream text-[clamp(44px,14vw,84px)] sm:text-[clamp(96px,18vw,320px)]"
+          style={{ lineHeight: 0.82 }}
         >
           bora
           <br />
@@ -53,7 +53,7 @@ export function CTA() {
               </>
             )}
           </div>
-          <p className="max-w-[300px] text-right text-[17px] font-medium">
+          <p className="max-w-[300px] text-[17px] font-medium sm:text-right">
             Cancele até <b>8h antes</b> da aula.
             <br />
             Crédito volta pra carteira, sem custo.

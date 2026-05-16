@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Navigate, useNavigate, useSearchParams } from 'react-router';
 import { AxiosError } from 'axios';
+import { useQueryClient } from '@tanstack/react-query';
 import { useFriendsAttendingBatch } from '@/api/friends';
 import {
   useCancelReservation,
@@ -14,6 +15,9 @@ import {
   useMyWaitlists,
 } from '@/api/me';
 import {
+  acquireBikeHold,
+  getMyBikeHold,
+  releaseBikeHold,
   useClassSlotsRange,
   useSeatMap,
   type PublicBike,
@@ -80,6 +84,34 @@ export function ReservarRoute() {
   const [cancelReservationTarget, setCancelReservationTarget] = useState<
     string | null
   >(null);
+
+  // --- Bike hold (temporary exclusive seat claim) ---
+  // `holdExpiresAt` drives the step-3 countdown. `heldSlotRef` tracks the
+  // slot we currently hold a seat on so unmount/navigation cleanup can
+  // release it even when state has already changed. `heldBikeId` is the
+  // bike the server currently holds for us — kept separate from
+  // `selectedBikeId` because, after backing from confirm to picker, the
+  // user can change selection without immediately moving the hold.
+  const [holdExpiresAt, setHoldExpiresAt] = useState<string | null>(null);
+  const [holdMsg, setHoldMsg] = useState<string | null>(null);
+  const [holdSecondsLeft, setHoldSecondsLeft] = useState<number | null>(null);
+  const [heldBikeId, setHeldBikeId] = useState<string | null>(null);
+  const heldSlotRef = useRef<string | null>(null);
+  // Tracks the last slotId we ran the rehydrate fetch for, so the effect
+  // doesn't re-fire on every seat-map refetch (every 30s via polling).
+  // Reset implicitly when the user picks a different slot.
+  const rehydratedForSlotRef = useRef<string | null>(null);
+  const qc = useQueryClient();
+
+  const doReleaseHold = useCallback(() => {
+    const s = heldSlotRef.current;
+    if (!s) return;
+    heldSlotRef.current = null;
+    setHoldExpiresAt(null);
+    setHoldSecondsLeft(null);
+    setHeldBikeId(null);
+    void releaseBikeHold(s);
+  }, []);
 
   // Day picker state — anchored to today.
   const days = useMemo(() => buildWeekDays(), []);
@@ -200,16 +232,92 @@ export function ReservarRoute() {
     return () => clearTimeout(t);
   }, [step, navigate]);
 
+  // Step-3 (confirmation) countdown. The hold's `expiresAt` is the source
+  // of truth — when it passes, release the hold and bounce to /dashboard
+  // so a parked confirmation screen can't sit on a seat forever. Only
+  // armed while actually on the confirm step.
+  useEffect(() => {
+    if (step !== 2 || !holdExpiresAt) {
+      setHoldSecondsLeft(null);
+      return;
+    }
+    const target = new Date(holdExpiresAt).getTime();
+    const tick = () => {
+      const left = Math.max(0, Math.floor((target - Date.now()) / 1000));
+      setHoldSecondsLeft(left);
+      if (left <= 0) {
+        doReleaseHold();
+        navigate('/dashboard', { replace: true });
+      }
+    };
+    tick();
+    const iv = setInterval(tick, 1000);
+    return () => clearInterval(iv);
+  }, [step, holdExpiresAt, doReleaseHold, navigate]);
+
+  // Reservation confirmed (step 3): the backend already consumed the hold
+  // on create; for the edit/remarcar paths it didn't, so release to be
+  // safe. Idempotent either way.
+  useEffect(() => {
+    if (step === 3) doReleaseHold();
+  }, [step, doReleaseHold]);
+
+  // Reset the rehydrate tracker when the slot changes so re-entry on the
+  // same slot (e.g. user backed to step 0 and re-picked the same slot)
+  // runs the hold check again instead of being skipped as "already done".
+  useEffect(() => {
+    rehydratedForSlotRef.current = null;
+  }, [selectedSlotId]);
+
+  // Rehydrate the user's existing hold when they (re)enter the bike step.
+  // Holds intentionally survive accidental exits (tab close, refresh,
+  // phone lock, app switch) until the explicit "voltar" or the 5-min TTL.
+  // If a hold exists, jump straight to the confirmation step — the user
+  // already committed to a bike for this slot, no need to make them
+  // re-pick it. If they want to change, "voltar" on the confirm step
+  // brings them back to the picker with the seat still held.
+  useEffect(() => {
+    if (step !== 1) return;
+    if (!selectedSlotId) return;
+    if (!seatMapQ.data) return;
+    if (selectedBikeId) return;
+    if (rehydratedForSlotRef.current === selectedSlotId) return;
+    rehydratedForSlotRef.current = selectedSlotId;
+    let cancelled = false;
+    void getMyBikeHold(selectedSlotId).then((hold) => {
+      if (cancelled || !hold) return;
+      heldSlotRef.current = selectedSlotId;
+      setSelectedBikeId(hold.bikeId);
+      setHeldBikeId(hold.bikeId);
+      setHoldExpiresAt(hold.expiresAt);
+      setHoldMsg(null);
+      setStep(2);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [step, selectedSlotId, seatMapQ.data, selectedBikeId]);
+
   // Hooks above this gate — keep call order stable.
   if (!session) return <Navigate to="/login" replace />;
 
   const isEditMode = !!editingReservation;
   const goToCleanSlotPicker = () => {
+    doReleaseHold();
     setSelectedSlotId(null);
     setSelectedBikeId(null);
     setConfirmError(null);
     if (isEditMode) navigate('/reservar', { replace: true });
     setStep(0);
+  };
+
+  // Pick a bike → purely local selection. The server-side hold is only
+  // acquired on advance to the confirmation step, so clicking around the
+  // arena doesn't block other users. The "you got beaten to it" 409
+  // surfaces on advance (see `onAdvance`).
+  const onSelectBike = (bid: string) => {
+    setSelectedBikeId(bid);
+    setHoldMsg(null);
   };
 
   const onSelectSlot = (s: PublicClassSlot) => {
@@ -255,9 +363,38 @@ export function ReservarRoute() {
     setSelectedBikeId(null);
   };
 
-  const onAdvance = () => {
-    if (step === 0 && selectedSlotId) setStep(1);
-    else if (step === 1 && selectedBikeId) setStep(2);
+  const onAdvance = async () => {
+    if (step === 0 && selectedSlotId) {
+      setStep(1);
+      return;
+    }
+    if (step === 1 && selectedBikeId && selectedSlotId) {
+      // Advancing to the confirmation step is the moment we acquire the
+      // server-side hold. The backend's `acquire` is idempotent for the
+      // same (slot, bike) and swaps the held bike if the user changed
+      // their mind after backing from confirm — either case lands here.
+      // 409 = someone got the bike before us: clear, surface a message,
+      // refetch the seat-map, and keep them on the picker.
+      try {
+        const hold = await acquireBikeHold(selectedSlotId, selectedBikeId);
+        heldSlotRef.current = selectedSlotId;
+        setHeldBikeId(hold.bikeId);
+        setHoldExpiresAt(hold.expiresAt);
+        setHoldMsg(null);
+        setStep(2);
+      } catch {
+        setSelectedBikeId(null);
+        setHeldBikeId(null);
+        setHoldExpiresAt(null);
+        heldSlotRef.current = null;
+        setHoldMsg(
+          'Essa bike acabou de ser pega por outra pessoa. Escolha outra.',
+        );
+        void qc.invalidateQueries({
+          queryKey: ['seat-map', selectedSlotId],
+        });
+      }
+    }
   };
 
   const onBack = () => {
@@ -267,6 +404,7 @@ export function ReservarRoute() {
       if (isEditMode) navigate('/dashboard');
       else setStep(-1);
     } else if (step === 1) {
+      doReleaseHold();
       setSelectedBikeId(null);
       if (isEditMode) {
         // Bike-swap should never leave the original class selected in the
@@ -276,6 +414,7 @@ export function ReservarRoute() {
       }
       setStep(0);
     } else if (step === 2) {
+      // Stepping back to the picker keeps the hold alive (still choosing).
       setStep(1);
     }
   };
@@ -468,21 +607,29 @@ export function ReservarRoute() {
                     carregando sua reserva...
                   </div>
                 ) : seatMapQ.data ? (
-                  <StepBike
-                    seatMap={seatMapQ.data}
-                    bikeId={selectedBikeId}
-                    hoveredBikeId={hoveredBikeId}
-                    onSelectBike={(id) => setSelectedBikeId(id)}
-                    onHoverBike={setHoveredBikeId}
-                    usualBikeId={usualBikeId}
-                    myExistingBikeId={myExistingBikeIdOnSelected}
-                    editMode={isBikeSwapMode}
-                    friendsOnSlot={
-                      selectedSlotId
-                        ? friendsAttendingQ.data?.[selectedSlotId]
-                        : undefined
-                    }
-                  />
+                  <>
+                    {holdMsg && (
+                      <div className="mb-4 rounded-2xl border-[1.5px] border-clay/40 bg-clay/10 px-5 py-3.5 text-[13px] font-semibold text-clay-d">
+                        {holdMsg}
+                      </div>
+                    )}
+                    <StepBike
+                      seatMap={seatMapQ.data}
+                      bikeId={selectedBikeId}
+                      hoveredBikeId={hoveredBikeId}
+                      onSelectBike={onSelectBike}
+                      onHoverBike={setHoveredBikeId}
+                      usualBikeId={usualBikeId}
+                      myExistingBikeId={myExistingBikeIdOnSelected}
+                      myHeldBikeId={heldBikeId}
+                      editMode={isBikeSwapMode}
+                      friendsOnSlot={
+                        selectedSlotId
+                          ? friendsAttendingQ.data?.[selectedSlotId]
+                          : undefined
+                      }
+                    />
+                  </>
                 ) : (
                   <div className="rounded-2xl bg-cream-2 px-5 py-12 text-center text-sm text-ink-2">
                     {seatMapQ.isLoading
@@ -492,15 +639,50 @@ export function ReservarRoute() {
                 ))}
 
               {step === 2 && seatMapQ.data && selectedBike && (
-                <StepConfirm
-                  seatMap={seatMapQ.data}
-                  bike={selectedBike}
-                  packs={packsQ.data}
-                  isSubmitting={isSubmitting}
-                  errorMessage={confirmError}
-                  onConfirm={onConfirm}
-                  editMode={isBikeSwapMode}
-                />
+                <>
+                  {holdSecondsLeft != null && (
+                    <div
+                      className="mb-4 flex items-center justify-between gap-3 rounded-2xl border-[1.5px] px-5 py-3.5 text-[13px]"
+                      style={{
+                        borderColor:
+                          holdSecondsLeft <= 60
+                            ? 'var(--color-clay)'
+                            : 'var(--color-sand)',
+                        background:
+                          holdSecondsLeft <= 60
+                            ? 'rgba(216,93,52,.10)'
+                            : 'var(--color-cream-2)',
+                      }}
+                    >
+                      <span className="text-ink-2">
+                        sua bike está <b className="text-ink">reservada pra você</b> —
+                        confirme antes do tempo acabar ou ela é liberada.
+                      </span>
+                      <span
+                        className="display-tight mono shrink-0 tabular-nums"
+                        style={{
+                          fontSize: 22,
+                          color:
+                            holdSecondsLeft <= 60
+                              ? 'var(--color-clay-d)'
+                              : 'var(--color-ink)',
+                        }}
+                      >
+                        {Math.floor(holdSecondsLeft / 60)}:
+                        {String(holdSecondsLeft % 60).padStart(2, '0')}
+                      </span>
+                    </div>
+                  )}
+                  <StepConfirm
+                    seatMap={seatMapQ.data}
+                    bike={selectedBike}
+                    packs={packsQ.data}
+                    isSubmitting={isSubmitting}
+                    errorMessage={confirmError}
+                    onConfirm={onConfirm}
+                    editMode={isBikeSwapMode}
+                  />
+                </>
               )}
             </div>
 
@@ -515,7 +697,7 @@ export function ReservarRoute() {
                 </button>
                 <button
                   type="button"
-                  onClick={onAdvance}
+                  onClick={() => void onAdvance()}
                   disabled={!podeAvancar}
                   className="inline-flex items-center gap-2.5 rounded-full px-7 py-4 text-[15px] font-semibold transition-all disabled:cursor-not-allowed"
                   style={{

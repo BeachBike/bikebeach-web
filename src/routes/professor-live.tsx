@@ -110,7 +110,7 @@ export function ProfessorLiveRoute() {
             </div>
             <h1
               className="display-tight mt-1.5 leading-[.95]"
-              style={{ fontSize: 'clamp(40px, 6vw, 72px)' }}
+              style={{ fontSize: 'clamp(28px, 6vw, 72px)' }}
             >
               {slot.classKind?.name ?? slot.title ?? 'aula'}
               <br />

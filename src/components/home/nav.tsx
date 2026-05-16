@@ -41,12 +41,13 @@ export function Nav({ variant = 'full' }: NavProps = {}) {
   return (
     <nav
       style={{
-        padding: scrolled ? '14px 28px' : '22px 28px',
+        paddingTop: scrolled ? 14 : 22,
+        paddingBottom: scrolled ? 14 : 22,
         background: scrolled ? 'rgba(246,239,226,.9)' : 'transparent',
         backdropFilter: scrolled ? 'blur(16px)' : 'none',
         WebkitBackdropFilter: scrolled ? 'blur(16px)' : 'none',
       }}
-      className="fixed inset-x-0 top-0 z-50 flex items-center justify-between transition-all duration-300 ease-out"
+      className="fixed inset-x-0 top-0 z-50 flex items-center justify-between gap-2 px-4 transition-all duration-300 ease-out sm:px-7"
     >
       <Link to="/">
         <Logo />
@@ -67,7 +68,12 @@ export function Nav({ variant = 'full' }: NavProps = {}) {
       )}
 
       <div className="flex items-center gap-2">
-        <ArenaPicker variant="nav" />
+        {/* Arena picker lives in the nav on desktop; on mobile the bar is
+            too tight (logo + auth CTAs), so the landing renders a floating
+            chip instead — see LandingRoute. */}
+        <div className="hidden md:block">
+          <ArenaPicker variant="nav" />
+        </div>
         {user && home ? (
           <Link
             to={home}
@@ -89,9 +95,10 @@ export function Nav({ variant = 'full' }: NavProps = {}) {
             </Link>
             <Link
               to="/cadastro"
-              className="inline-flex items-center gap-2 rounded-full bg-ink px-5 py-3 text-sm font-semibold text-cream transition-colors hover:bg-ink-2"
+              className="inline-flex items-center gap-2 whitespace-nowrap rounded-full bg-ink px-4 py-3 text-sm font-semibold text-cream transition-colors hover:bg-ink-2 sm:px-5"
             >
-              Reservar bike <span aria-hidden>↗</span>
+              Reservar<span className="hidden sm:inline">&nbsp;bike</span>{' '}
+              <span aria-hidden>↗</span>
             </Link>
           </>
         )}

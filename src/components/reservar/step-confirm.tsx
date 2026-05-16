@@ -84,7 +84,7 @@ export function StepConfirm({
       </div>
       <h2
         className="display-tight mt-3"
-        style={{ fontSize: 'clamp(40px,6vw,72px)', lineHeight: 0.92 }}
+        style={{ fontSize: 'clamp(28px,6vw,72px)', lineHeight: 0.92 }}
       >
         {editMode ? (
           <>
@@ -107,7 +107,7 @@ export function StepConfirm({
           </div>
           <div
             className="display-tight mt-3.5"
-            style={{ fontSize: 36, lineHeight: 1 }}
+            style={{ fontSize: 'clamp(26px,5vw,36px)', lineHeight: 1 }}
           >
             {titulo}
           </div>

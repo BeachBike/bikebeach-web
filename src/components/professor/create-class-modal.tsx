@@ -4,6 +4,7 @@ import {
   useAdminClassKinds,
   useAdminUnits,
   useCreateClassSlot,
+  type ClassKindColor,
 } from '@/api/admin';
 import type { Me } from '@/api/me';
 
@@ -82,6 +83,8 @@ export function CreateClassModal({
     const startsAt = combineDateTime(date, time);
     if (Number.isNaN(startsAt.getTime()))
       return setError('Data/horário inválidos.');
+    if (startsAt.getTime() <= Date.now())
+      return setError('A aula precisa começar no futuro.');
     if (
       pickedArena &&
       (!pickedArena.operationalBikeCount ||
@@ -121,10 +124,8 @@ export function CreateClassModal({
         <div
           className="px-7 py-6"
           style={{
-            background: pickedKind
-              ? toneBg(pickedKind.tone ?? '')
-              : 'var(--color-clay)',
-            color: tonefg(pickedKind?.tone ?? ''),
+            background: kindBg(pickedKind?.colorToken),
+            color: kindFg(pickedKind?.colorToken),
           }}
         >
           <div className="flex items-start justify-between">
@@ -218,7 +219,7 @@ export function CreateClassModal({
                   >
                     <span
                       className="size-3 shrink-0 rounded-xs"
-                      style={{ background: toneBg(k.tone ?? '') }}
+                      style={{ background: kindBg(k.colorToken) }}
                     />
                     <span className="flex flex-col">
                       <span className="display-tight text-[15px] leading-none">
@@ -240,6 +241,7 @@ export function CreateClassModal({
               type="date"
               value={date}
               onChange={setDate}
+              min={toDateInput(new Date())}
             />
             <Field
               label="horário"
@@ -309,11 +311,13 @@ function Field({
   type,
   value,
   onChange,
+  min,
 }: {
   label: string;
   type: string;
   value: string;
   onChange: (v: string) => void;
+  min?: string;
 }) {
   return (
     <label className="block">
@@ -323,6 +327,7 @@ function Field({
       <input
         type={type}
         value={value}
+        min={min}
         onChange={(e) => onChange(e.target.value)}
         className="w-full rounded-lg border-[1.5px] border-sand bg-cream px-3.5 py-3 text-sm font-medium focus:border-ink focus:bg-white focus:outline-none"
       />
@@ -343,23 +348,31 @@ function ReadOnly({ label, value }: { label: string; value: string }) {
   );
 }
 
-function toneBg(tone: string) {
-  const t = tone.toLowerCase();
-  if (t.includes('sun') || t.includes('amarelo') || t.includes('almoço'))
-    return 'var(--color-sun)';
-  if (t.includes('clay') || t.includes('forte') || t.includes('pôr'))
-    return 'var(--color-clay)';
-  if (t.includes('ink') || t.includes('noturno') || t.includes('noite'))
-    return 'var(--color-ink)';
-  if (t.includes('sand')) return 'var(--color-sand-2)';
-  return 'var(--color-sea)';
+/// Class-kind color comes from the admin-picked `colorToken` (the design
+/// system token), NOT a fuzzy match on the free-text `tone` "vibe" field.
+/// Earlier this drawer sniffed `tone` for substrings like "forte"/"pôr",
+/// so most kinds fell through to SEA and the picked color never showed.
+/// Uses the darker token variants because the header is a large
+/// text-bearing surface (same palette as the reservation palco card).
+const KIND_BG: Record<ClassKindColor, string> = {
+  CLAY: 'var(--color-clay)',
+  SUN: 'var(--color-sun-d, #C99449)',
+  SEA: 'var(--color-sea)',
+  SAND: 'var(--color-sand-d, #BBA683)',
+  INK: 'var(--color-ink)',
+  GREEN: '#3F7A4F',
+};
+
+function kindBg(token: ClassKindColor | null | undefined) {
+  return (token && KIND_BG[token]) || 'var(--color-clay)';
 }
 
-function tonefg(tone: string) {
-  const t = tone.toLowerCase();
-  if (t.includes('sun') || t.includes('sand') || t.includes('amarelo'))
-    return 'var(--color-ink)';
-  return 'var(--color-cream)';
+/// SUN / SAND are light fills → dark text reads better on them; the rest
+/// are dark → cream text. Mirrors the palco card's `lightFill` rule.
+function kindFg(token: ClassKindColor | null | undefined) {
+  return token === 'SUN' || token === 'SAND'
+    ? 'var(--color-ink)'
+    : 'var(--color-cream)';
 }
 
 function nextWeekDay() {

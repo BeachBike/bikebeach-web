@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query';
+import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import { ALL_ARENAS, type ArenaSelection, useArenaStore } from '@/stores/arena';
 import { api } from './client';
 
@@ -187,6 +187,11 @@ export function useTodayClassSlots(
         })
         .then((r) => r.data),
     staleTime: 60_000,
+    // Day-strip switches change the query key. Without this the list
+    // collapses to the loading state (height → ~0) and everything below
+    // jumps up, then re-expands when data lands. Keeping the previous
+    // day's rows visible during the fetch makes the swap seamless.
+    placeholderData: keepPreviousData,
   });
 }
 
@@ -233,7 +238,58 @@ export interface SeatMap {
   };
   bikes: PublicBike[];
   occupiedBikeIds: string[];
+  /// Bikes another user is mid-booking (non-expired `BikeHold`). The FE
+  /// paints these "em reserva" (charcoal, not selectable) and filters out
+  /// the caller's own held bike client-side via `selectedBikeId`.
+  heldBikeIds: string[];
   freeSpots: number;
+}
+
+export interface BikeHoldView {
+  id: string;
+  classSlotId: string;
+  bikeId: string;
+  /// ISO — when the hold auto-expires (now + 5 min). Drives the step-3
+  /// countdown.
+  expiresAt: string;
+}
+
+/// The caller's own current hold on a slot (or null). Called when the
+/// user (re)enters the bike step so we can restore their selection +
+/// countdown — holds intentionally survive accidental exits (tab close,
+/// refresh, phone lock) until the explicit "voltar" or the 5-min TTL.
+export function getMyBikeHold(slotId: string) {
+  return api
+    .get<BikeHoldView | null>(`/class-slots/${slotId}/holds/mine`)
+    .then((r) => r.data ?? null)
+    .catch(() => null);
+}
+
+/// Acquire (or move) a temporary exclusive hold on a bike while the user
+/// is in the reservation flow. Auth required. Rejects 409 when another
+/// user already holds / reserved the seat — the caller surfaces a "essa
+/// bike acabou de ser pega" message and refetches the seat-map.
+export function acquireBikeHold(slotId: string, bikeId: string) {
+  return api
+    .post<BikeHoldView>(`/class-slots/${slotId}/holds`, { bikeId })
+    .then((r) => r.data);
+}
+
+/// Re-touch the caller's hold to a fresh TTL (called on entering step 3).
+/// Returns null if the hold already lapsed.
+export function refreshBikeHold(slotId: string) {
+  return api
+    .patch<BikeHoldView | null>(`/class-slots/${slotId}/holds`)
+    .then((r) => r.data);
+}
+
+/// Release the caller's hold (back / leaving the flow). Idempotent — safe
+/// to call even if there's nothing held.
+export function releaseBikeHold(slotId: string) {
+  return api
+    .delete(`/class-slots/${slotId}/holds`)
+    .then(() => undefined)
+    .catch(() => undefined); // best-effort; never block navigation
 }
 
 /// Single-call payload for the bike-picker UI: slot details + every

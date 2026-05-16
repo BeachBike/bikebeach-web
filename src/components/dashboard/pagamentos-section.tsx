@@ -64,7 +64,7 @@ export function PagamentosSection({ payments }: Props) {
 
   return (
     <div className="col-span-12 min-h-[340px] rounded-[22px] bg-cream-2 p-7 lg:col-span-7">
-      <h2 className="display-tight" style={{ fontSize: 36 }}>
+      <h2 className="display-tight" style={{ fontSize: 'clamp(24px,5vw,36px)' }}>
         histórico de pagamentos
       </h2>
       {list.length === 0 ? (

@@ -531,8 +531,13 @@ function DadosBlock({ me }: { me: MeShape }) {
   const cpfRaw = me.cpf ?? '';
   const cpfDisplay = me.cpf ? formatCpf(me.cpf) : null;
   const birthRaw = isoToInputDate(me.birthDate);
+  // birthDate is stored at UTC midnight (see api/src/users/users.service.ts
+  // updateMe + api/src/auth/auth.service.ts signup). Format with
+  // `timeZone: 'UTC'` so the calendar day shown matches what the user
+  // typed regardless of the browser's local timezone — otherwise a
+  // viewer in UTC-3 would see the previous day for `T00:00:00Z`.
   const birthDisplay = me.birthDate
-    ? new Date(me.birthDate).toLocaleDateString('pt-BR')
+    ? new Date(me.birthDate).toLocaleDateString('pt-BR', { timeZone: 'UTC' })
     : null;
 
   return (

@@ -34,7 +34,7 @@ export function ReservationSuccess({ seatMap, bike, editMode }: Props) {
       </div>
       <div
         className="display-tight"
-        style={{ fontSize: 'clamp(40px,6vw,72px)', lineHeight: 0.95 }}
+        style={{ fontSize: 'clamp(28px,6vw,72px)', lineHeight: 0.95 }}
       >
         {editMode ? 'bike trocada.' : 'tá reservado.'}
       </div>

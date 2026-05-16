@@ -196,7 +196,7 @@ export function CheckoutRoute() {
           <div className="text-[13px] font-semibold text-clay">checkout</div>
           <h1
             className="display-tight mt-1.5"
-            style={{ fontSize: 'clamp(40px,6vw,72px)', lineHeight: 0.92 }}
+            style={{ fontSize: 'clamp(28px,6vw,72px)', lineHeight: 0.92 }}
           >
             tá quase.
             <br />
@@ -362,7 +362,7 @@ function MissingProductGate() {
       <main className="mx-auto max-w-[640px] px-6 pb-20 pt-16 text-center">
         <h1
           className="display-tight"
-          style={{ fontSize: 48, lineHeight: 1 }}
+          style={{ fontSize: 'clamp(30px,6vw,48px)', lineHeight: 1 }}
         >
           escolhe um produto primeiro.
         </h1>
@@ -405,7 +405,7 @@ function Tab({
     <button
       type="button"
       onClick={onClick}
-      className="flex items-center justify-center gap-2 rounded-xl px-3 py-3.5 text-sm font-semibold transition-colors"
+      className="flex flex-col items-center justify-center gap-1 rounded-xl px-2 py-2.5 text-[13px] font-semibold transition-colors sm:flex-row sm:gap-2 sm:px-3 sm:py-3.5 sm:text-sm"
       style={{
         background: active ? 'var(--color-ink)' : 'transparent',
         color: active ? 'var(--color-cream)' : 'var(--color-ink)',

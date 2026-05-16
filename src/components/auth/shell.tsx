@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router';
+import { Logo } from '@/components/brand/logo';
 import { ContaAside, type AuthMode } from './aside';
 
 interface Props {
@@ -19,6 +20,12 @@ export function ContaShell({ mode, children }: Props) {
           className="inline-flex items-center gap-2 rounded-full px-4 py-2.5 text-sm font-semibold text-ink-2 transition-colors hover:bg-cream-2"
         >
           ← voltar pra home
+        </Link>
+        {/* Brand on mobile only — the decorative aside (which carries the
+            logo on desktop) is hidden on small screens so the form is
+            front-and-center, so surface the logo here instead. */}
+        <Link to="/" className="pr-2 lg:hidden" aria-label="bikebeach — início">
+          <Logo />
         </Link>
       </div>
 

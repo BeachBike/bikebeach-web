@@ -101,7 +101,7 @@ export function AgendaTab({
             <div className="text-sm font-semibold text-clay">minha agenda</div>
             <div
               className="display-tight mt-1.5 leading-[.95]"
-              style={{ fontSize: 'clamp(40px,6vw,72px)' }}
+              style={{ fontSize: 'clamp(28px,6vw,72px)' }}
             >
               minhas aulas.
             </div>

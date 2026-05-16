@@ -27,10 +27,13 @@ export function Como() {
   const [hover, setHover] = useState<number | null>(null);
 
   return (
-    <section id="como" className="px-7 pb-[120px] pt-[140px]">
+    <section
+      id="como"
+      className="px-7 pb-20 pt-24 sm:pb-[120px] sm:pt-[140px]"
+    >
       <h2
         className="display-tight max-w-[1200px]"
-        style={{ fontSize: 'clamp(56px, 9vw, 140px)', lineHeight: 0.92 }}
+        style={{ fontSize: 'clamp(34px, 9vw, 140px)', lineHeight: 0.92 }}
       >
         Quatro passos.
         <br />

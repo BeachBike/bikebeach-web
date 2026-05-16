@@ -83,7 +83,7 @@ export function ContaAside({ mode }: Props) {
 
   return (
     <aside
-      className="relative flex min-h-[580px] flex-col justify-between overflow-hidden rounded-3xl px-9 py-10 text-cream"
+      className="relative hidden min-h-[580px] flex-col justify-between overflow-hidden rounded-3xl px-9 py-10 text-cream lg:flex"
       style={{ background: c.bg }}
     >
       {/* Sun / moon decorative gradient */}
@@ -109,7 +109,7 @@ export function ContaAside({ mode }: Props) {
       <div className="relative z-10">
         <h2
           className="display font-medium"
-          style={{ fontSize: 'clamp(58px,7vw,108px)', lineHeight: 0.88 }}
+          style={{ fontSize: 'clamp(40px,7vw,108px)', lineHeight: 0.88 }}
         >
           {c.headline}
         </h2>

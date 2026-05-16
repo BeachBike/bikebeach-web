@@ -44,7 +44,7 @@ export function Recs({ reservations }: Props) {
     <section className="col-span-12 mt-5">
       <h2
         className="display-tight mb-3.5"
-        style={{ fontSize: 36 }}
+        style={{ fontSize: 'clamp(24px,5vw,36px)' }}
       >
         sugestões pra hoje
       </h2>
@@ -77,7 +77,7 @@ export function Recs({ reservations }: Props) {
                 </div>
                 <div
                   className="display-tight mt-2"
-                  style={{ fontSize: 34, lineHeight: 1 }}
+                  style={{ fontSize: 'clamp(22px,5vw,34px)', lineHeight: 1 }}
                 >
                   {titulo}
                 </div>

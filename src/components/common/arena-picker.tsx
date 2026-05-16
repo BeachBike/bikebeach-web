@@ -9,6 +9,19 @@ interface ArenaPickerProps {
   /// background), `panel` is for the dashboard (slightly larger, fits inside
   /// a card). Default `nav`.
   variant?: 'nav' | 'panel';
+  /// Open the menu upward instead of downward. Used by the landing's
+  /// mobile floating chip, which is anchored near the bottom of the
+  /// screen — a downward menu would fall off-viewport.
+  openUp?: boolean;
+  /// Align the menu to the trigger's left edge instead of the right.
+  /// Pairs with `openUp` for the bottom-left floating placement.
+  alignLeft?: boolean;
+  /// High-contrast solid trigger (cream + shadow + ring) for the
+  /// floating placement, which sits over arbitrary section backgrounds
+  /// (cream, dark "arena", photos). The faint `bg-ink/5` would vanish
+  /// there. Kept on the trigger (not a wrapper) so the component still
+  /// renders nothing when there's only one arena.
+  floating?: boolean;
 }
 
 /// Global arena selector backed by `useArenaStore`. Renders nothing while the
@@ -23,7 +36,12 @@ interface ArenaPickerProps {
 ///   arena at a time so the data they see matches what they can act on.
 /// - ADMIN → behaves like USER (admin tooling is arena-scoped via its own
 ///   sidebar, not this picker).
-export function ArenaPicker({ variant = 'nav' }: ArenaPickerProps) {
+export function ArenaPicker({
+  variant = 'nav',
+  openUp = false,
+  alignLeft = false,
+  floating = false,
+}: ArenaPickerProps) {
   const { data: units, isLoading } = useUnits();
   const sessionUser = useAuthStore((s) => s.user);
   // Only fetch /users/me when authenticated to avoid a 401 on the public
@@ -79,8 +97,9 @@ export function ArenaPicker({ variant = 'nav' }: ArenaPickerProps) {
       ? eligibleUnits[0]!.name
       : 'todas as arenas';
 
-  const trigger =
-    variant === 'panel'
+  const trigger = floating
+    ? 'inline-flex items-center gap-2 rounded-full bg-cream px-4 py-2.5 text-[13px] font-semibold text-ink shadow-[0_10px_30px_-10px_rgba(34,28,22,.45)] ring-1 ring-sand transition-colors'
+    : variant === 'panel'
       ? 'inline-flex items-center gap-2 rounded-full border border-sand-2 bg-cream px-4 py-2 text-sm font-semibold text-ink hover:border-clay'
       : 'inline-flex items-center gap-2 rounded-full bg-ink/5 px-4 py-2 text-[13px] font-semibold text-ink transition-colors hover:bg-ink/10';
 
@@ -100,7 +119,13 @@ export function ArenaPicker({ variant = 'nav' }: ArenaPickerProps) {
       {open && (
         <ul
           role="listbox"
-          className="absolute right-0 top-[calc(100%+8px)] z-50 min-w-[220px] overflow-hidden rounded-2xl border border-sand-2 bg-cream py-2 shadow-xl"
+          className={`absolute z-50 min-w-[220px] overflow-hidden rounded-2xl border border-sand-2 bg-cream py-2 shadow-xl ${
+            alignLeft ? 'left-0' : 'right-0'
+          } ${
+            openUp
+              ? 'bottom-[calc(100%+8px)]'
+              : 'top-[calc(100%+8px)]'
+          }`}
         >
           {!isInstructor && (
             <>

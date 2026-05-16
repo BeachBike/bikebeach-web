@@ -136,7 +136,17 @@ export function AdminCalendar({ unitId }: AdminCalendarProps) {
             <Btn ghost onClick={() => shiftWeek(7)}>
               próxima →
             </Btn>
-            <Btn tone="clay" onClick={() => setCreating({ day: days[0] })}>
+            <Btn
+              tone="clay"
+              onClick={() =>
+                setCreating({
+                  // Prefill with the week's first day, but never a past
+                  // day (the form blocks past creation anyway).
+                  day:
+                    days[0] && !isPastDay(days[0]) ? days[0] : new Date(),
+                })
+              }
+            >
               nova aula
             </Btn>
           </>
@@ -298,6 +308,17 @@ function FragmentRow({
         const key = `${di}-${hhmm}`;
         const slots = grid.get(key) ?? [];
         if (slots.length === 0) {
+          // Past days can't take new classes (backend requires a future
+          // start). Render an inert, muted cell instead of the + button.
+          if (isPastDay(d)) {
+            return (
+              <div
+                key={di}
+                aria-hidden
+                className="min-h-[58px] rounded-xs border border-dashed border-sand/40 bg-cream-2/20"
+              />
+            );
+          }
           return (
             <button
               key={di}
@@ -540,6 +561,8 @@ function SlotFormDrawer({
     if (!time) return setError('Selecione o horário.');
     const startsAt = combineDateTime(date, time);
     if (Number.isNaN(startsAt.getTime())) return setError('Data/hora inválida.');
+    if (!editing && startsAt.getTime() <= Date.now())
+      return setError('A aula precisa começar no futuro.');
     if (!editing && (!unit.operationalBikeCount || unit.operationalBikeCount < 1)) {
       return setError(
         'Arena sem bikes operacionais — cadastre bikes antes de abrir aulas.',
@@ -718,6 +741,7 @@ function SlotFormDrawer({
               <TextInput
                 type="date"
                 value={date}
+                min={editing ? undefined : toDateInput(new Date())}
                 onChange={(e) => setDate(e.target.value)}
               />
             </FormField>
@@ -816,6 +840,17 @@ function toDateInput(d: Date) {
   const m = String(d.getMonth() + 1).padStart(2, '0');
   const dd = String(d.getDate()).padStart(2, '0');
   return `${y}-${m}-${dd}`;
+}
+
+/// Date-only "is this day before today" — used to disable class creation
+/// on past days (the backend rejects past `startsAt` anyway; this stops
+/// the user reaching a guaranteed error).
+function isPastDay(d: Date) {
+  const a = new Date(d);
+  a.setHours(0, 0, 0, 0);
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return a.getTime() < today.getTime();
 }
 
 function withTime(day: Date, hhmm: string) {

@@ -33,13 +33,13 @@ export function Arena() {
   return (
     <section
       id="arena"
-      className="bg-ink px-7 pb-[120px] pt-[140px] text-cream"
+      className="bg-ink px-7 pb-20 pt-24 text-cream sm:pb-[120px] sm:pt-[140px]"
     >
       <div className="grid items-center gap-14 lg:grid-cols-2">
         <div>
           <h2
             className="display-tight"
-            style={{ fontSize: 'clamp(56px,8vw,128px)', lineHeight: 0.92 }}
+            style={{ fontSize: 'clamp(34px,8vw,128px)', lineHeight: 0.92 }}
           >
             A nossa
             <br />

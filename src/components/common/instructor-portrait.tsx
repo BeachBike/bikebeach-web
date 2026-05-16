@@ -1,12 +1,16 @@
 import { useMemo } from 'react';
 import { assetUrl } from '@/api/client';
 
-type Tone = 'clay' | 'sun' | 'sea' | 'sand' | 'ink';
-type Size = 'xs' | 'sm' | 'md' | 'lg';
+type Tone = 'clay' | 'sun' | 'sea' | 'sand' | 'ink' | 'green';
+type Size = 'xs' | 'sm' | 'lg2' | 'md' | 'lg';
 
 const SIZE: Record<Size, { box: string; ratio: string; nameSize: number }> = {
   xs: { box: '40px', ratio: '1', nameSize: 0 },
   sm: { box: '64px', ratio: '1', nameSize: 0 },
+  /// Large circular variant — used by the arena "palco" card where the
+  /// instructor photo is the visual anchor. Stays a circle (ratio 1), so
+  /// it counts as compact for object-fit / radius purposes.
+  lg2: { box: '104px', ratio: '1', nameSize: 0 },
   md: { box: '160px', ratio: '4/5', nameSize: 0 },
   lg: { box: '100%', ratio: '4/5', nameSize: 0 },
 };
@@ -17,6 +21,10 @@ const TONE_GRADIENT: Record<Tone, { from: string; to: string; accent: string }> 
   sea: { from: '#5FA29F', to: '#2D6A6A', accent: '#F6EFE2' },
   sand: { from: '#ECDDB6', to: '#CDB888', accent: '#221C16' },
   ink: { from: '#5C4D3D', to: '#221C16', accent: '#F2A65A' },
+  // GREEN class-kind token — base is var(--color-success) #3F7A4F.
+  // Built like `sea` (light → darker shade) so it reads as a real green
+  // instead of falling back to teal. Cream accent for legible initials.
+  green: { from: '#6FAE82', to: '#2F5F3C', accent: '#F6EFE2' },
 };
 
 interface Props {
@@ -52,7 +60,7 @@ export function InstructorPortrait({
     if (parts.length === 1) return parts[0]!.slice(0, 2).toUpperCase();
     return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
   }, [name]);
-  const isCompact = size === 'xs' || size === 'sm';
+  const isCompact = size === 'xs' || size === 'sm' || size === 'lg2';
 
   return (
     <div
@@ -114,9 +122,11 @@ export function InstructorPortrait({
                 ? 14
                 : size === 'sm'
                   ? 22
-                  : size === 'md'
-                    ? 48
-                    : 96,
+                  : size === 'lg2'
+                    ? 38
+                    : size === 'md'
+                      ? 48
+                      : 96,
             letterSpacing: '-0.04em',
           }}
           aria-hidden
@@ -137,8 +147,9 @@ export function toneFromColorToken(
     case 'SUN':
       return 'sun';
     case 'SEA':
-    case 'GREEN':
       return 'sea';
+    case 'GREEN':
+      return 'green';
     case 'SAND':
       return 'sand';
     case 'INK':

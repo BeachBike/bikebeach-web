@@ -127,7 +127,7 @@ export function TextInput({
   return (
     <input
       {...rest}
-      className={`w-full rounded-lg border-[1.5px] border-sand bg-cream px-3.5 py-3 text-sm font-medium transition-all duration-200 focus:border-ink focus:bg-white focus:ring-2 focus:ring-ink/10 focus:outline-none ${className}`}
+      className={`w-full rounded-lg border-[1.5px] border-sand bg-cream px-3.5 py-3 text-base font-medium transition-all duration-200 focus:border-ink focus:bg-white focus:ring-2 focus:ring-ink/10 focus:outline-none sm:text-sm ${className}`}
     />
   );
 }
@@ -140,7 +140,7 @@ export function Select({
   return (
     <select
       {...rest}
-      className={`w-full rounded-lg border-[1.5px] border-sand bg-cream px-3.5 py-3 text-sm font-medium transition-all duration-200 focus:border-ink focus:bg-white focus:ring-2 focus:ring-ink/10 focus:outline-none ${className}`}
+      className={`w-full rounded-lg border-[1.5px] border-sand bg-cream px-3.5 py-3 text-base font-medium transition-all duration-200 focus:border-ink focus:bg-white focus:ring-2 focus:ring-ink/10 focus:outline-none sm:text-sm ${className}`}
     >
       {children}
     </select>
@@ -154,7 +154,7 @@ export function TextArea({
   return (
     <textarea
       {...rest}
-      className={`w-full rounded-lg border-[1.5px] border-sand bg-cream px-3.5 py-3 text-sm font-medium transition-all duration-200 focus:border-ink focus:bg-white focus:ring-2 focus:ring-ink/10 focus:outline-none resize-none ${className}`}
+      className={`w-full rounded-lg border-[1.5px] border-sand bg-cream px-3.5 py-3 text-base font-medium transition-all duration-200 focus:border-ink focus:bg-white focus:ring-2 focus:ring-ink/10 focus:outline-none sm:text-sm resize-none ${className}`}
     />
   );
 }
@@ -182,7 +182,7 @@ export function PriceInput({
           const masked = maskPrice(e.target.value);
           onChange(masked);
         }}
-        className={`w-full rounded-lg border-[1.5px] border-sand bg-cream pl-10 pr-3.5 py-3 text-sm font-medium transition-all duration-200 focus:border-ink focus:bg-white focus:ring-2 focus:ring-ink/10 focus:outline-none ${className}`}
+        className={`w-full rounded-lg border-[1.5px] border-sand bg-cream pl-10 pr-3.5 py-3 text-base font-medium transition-all duration-200 focus:border-ink focus:bg-white focus:ring-2 focus:ring-ink/10 focus:outline-none sm:text-sm ${className}`}
       />
     </div>
   );

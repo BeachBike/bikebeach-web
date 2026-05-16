@@ -28,6 +28,15 @@ export default defineConfig({
         target: 'http://localhost:3000',
         changeOrigin: true,
       },
+      // Socket.IO realtime endpoint — `ws: true` upgrades the proxy to
+      // forward the WebSocket handshake. Lets the FE client use a relative
+      // URL in dev (matches prod, where the API serves HTTP and WS on the
+      // same origin).
+      '/socket.io': {
+        target: 'http://localhost:3000',
+        ws: true,
+        changeOrigin: true,
+      },
     },
   },
 });
