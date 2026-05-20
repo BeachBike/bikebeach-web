@@ -573,9 +573,12 @@ function SlotFormDrawer({
       if (editing) {
         // Update keeps the legacy capacity field for backwards-compat —
         // it doesn't auto-derive on update (the slot's capacity was set
-        // at creation time).
+        // at creation time). instructorId só vai pro backend quando muda
+        // — backend valida arena assignment + role e exige ADMIN.
         await updateMut.mutateAsync({
           id: editing.id,
+          instructorId:
+            instructorId !== editing.instructorId ? instructorId : undefined,
           classKindId: classKindId || undefined,
           title: title.trim() || undefined,
           startsAt: startsAt.toISOString(),
@@ -706,7 +709,6 @@ function SlotFormDrawer({
             <Select
               value={instructorId}
               onChange={(e) => setInstructorId(e.target.value)}
-              disabled={!!editing}
             >
               <option value="">selecionar...</option>
               {instructors

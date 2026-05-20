@@ -905,6 +905,7 @@ export function useUpdateClassSlot() {
   return useMutation({
     mutationFn: (payload: {
       id: string;
+      instructorId?: string;
       classKindId?: string;
       title?: string;
       startsAt?: string;
