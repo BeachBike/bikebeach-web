@@ -17,14 +17,24 @@ export type AdminTabId =
   | 'class-kinds'
   | 'plans'
   | 'bikes'
+  | 'gifts'
   | 'finance';
 
-type NavIconKind = 'dash' | 'cal' | 'people' | 'tag' | 'bike' | 'arena' | 'coin';
+type NavIconKind =
+  | 'dash'
+  | 'cal'
+  | 'people'
+  | 'tag'
+  | 'bike'
+  | 'arena'
+  | 'coin'
+  | 'gift';
 
 const NAV: { id: AdminTabId; label: string; icon: NavIconKind }[] = [
   { id: 'vision', label: 'visão geral', icon: 'dash' },
   { id: 'calendar', label: 'calendário', icon: 'cal' },
   { id: 'finance', label: 'financeiro', icon: 'coin' },
+  { id: 'gifts', label: 'presentes', icon: 'gift' },
   { id: 'arenas', label: 'arenas', icon: 'arena' },
   { id: 'instructors', label: 'professores', icon: 'people' },
   { id: 'class-kinds', label: 'tipos de aula', icon: 'tag' },
@@ -506,6 +516,18 @@ function NavIcon({ kind }: { kind: NavIconKind }) {
         <ellipse cx="12" cy="5" rx="9" ry="3" />
         <path d="M3 5v6c0 1.66 4.03 3 9 3s9-1.34 9-3V5" />
         <path d="M3 11v6c0 1.66 4.03 3 9 3s9-1.34 9-3v-6" />
+      </svg>
+    );
+  }
+  if (kind === 'gift') {
+    // Present box — the gifts / cortesias tab.
+    return (
+      <svg {...common}>
+        <polyline points="20 12 20 22 4 22 4 12" />
+        <rect x="2" y="7" width="20" height="5" />
+        <line x1="12" y1="22" x2="12" y2="7" />
+        <path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z" />
+        <path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z" />
       </svg>
     );
   }

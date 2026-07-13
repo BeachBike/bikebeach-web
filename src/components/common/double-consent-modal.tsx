@@ -43,10 +43,25 @@ export function DoubleConsentModal({
   const [step, setStep] = useState<1 | 2>(1);
   const [agreed, setAgreed] = useState(false);
 
+  // Reset to step 1 + unchecked whenever the modal (re)opens. Depends ONLY on
+  // `open` — critically NOT on `onClose`/`loading`. A parent that re-renders
+  // while the modal is open (e.g. the reserve screen's 1s hold countdown)
+  // passes new inline `onClose` identities every render; if those were in the
+  // deps this effect would re-fire and yank the user back to step 1 mid-flow,
+  // making it impossible to ever reach step 2 / confirm.
+  /* eslint-disable react-hooks/set-state-in-effect */
+  useEffect(() => {
+    if (open) {
+      setStep(1);
+      setAgreed(false);
+    }
+  }, [open]);
+  /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Escape-to-close + lock body scroll while open. Re-subscribing on
+  // `onClose`/`loading` change is harmless (no state reset here).
   useEffect(() => {
     if (!open) return;
-    setStep(1);
-    setAgreed(false);
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape' && !loading) onClose();
     };

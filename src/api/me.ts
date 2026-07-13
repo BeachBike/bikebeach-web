@@ -1,4 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useEffect, useState } from 'react';
 import { api } from './client';
 import type { PublicClassKind } from './public';
 import type { FitnessLevelEnum, UserGoalEnum } from './auth';
@@ -243,6 +244,39 @@ export function useMyPayments() {
     queryFn: () => api.get<Payment[]>('/payments/me').then((r) => r.data),
     staleTime: 60_000,
   });
+}
+
+/// The user's most recent still-in-flight payment (PENDING or IN_REVIEW)
+/// created in the last ~30 min. Drives the dashboard "confirmando seu
+/// pagamento…" banner so someone who closed the checkout tab still gets
+/// resolution when they return. Old abandoned pendings are ignored — the
+/// backend reconciliation cron flips those to EXPIRED anyway.
+const PENDING_PAYMENT_MAX_AGE_MS = 30 * 60_000;
+
+export function useMyPendingPayment(): Payment | null {
+  const { data } = useMyPayments();
+  // `now` lives in state (seeded once, ticked every minute) so the recency
+  // cutoff is computed from a pure value rather than calling `Date.now()`
+  // during render — mirrors the dashboard's `nowTick` pattern.
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 60_000);
+    return () => clearInterval(t);
+  }, []);
+
+  if (!data) return null;
+  const cutoff = now - PENDING_PAYMENT_MAX_AGE_MS;
+  const recentPending = data
+    .filter(
+      (p) =>
+        (p.status === 'PENDING' || p.status === 'IN_REVIEW') &&
+        new Date(p.createdAt).getTime() >= cutoff,
+    )
+    .sort(
+      (a, b) =>
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+    );
+  return recentPending[0] ?? null;
 }
 
 export interface MySubscription {

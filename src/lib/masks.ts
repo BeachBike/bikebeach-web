@@ -45,6 +45,28 @@ export function isValidEmail(v: string): boolean {
   return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
 }
 
+/// CPF Mod-11 check — mirrors the backend (`api/src/common/cpf.ts`
+/// `isValidCpf`) so the signup form catches a mistyped CPF inline instead of
+/// bouncing off the API's `@IsCpfValid` 400. Rejects all-same-digit CPFs
+/// (which pass the Mod-11 math by coincidence).
+export function isValidCpf(v: string): boolean {
+  const cpf = digitsOnly(v);
+  if (cpf.length !== 11) return false;
+  if (/^(\d)\1{10}$/.test(cpf)) return false;
+
+  let sum = 0;
+  for (let i = 0; i < 9; i++) sum += parseInt(cpf[i]!, 10) * (10 - i);
+  let rem = (sum * 10) % 11;
+  if (rem === 10) rem = 0;
+  if (rem !== parseInt(cpf[9]!, 10)) return false;
+
+  sum = 0;
+  for (let i = 0; i < 10; i++) sum += parseInt(cpf[i]!, 10) * (11 - i);
+  rem = (sum * 10) % 11;
+  if (rem === 10) rem = 0;
+  return rem === parseInt(cpf[10]!, 10);
+}
+
 /// Máscara de preço: "1234" → "12,34", "12345" → "123,45", "1234567" → "12.345,67"
 /// Recebe string de dígitos (ou já com pontuação — só os dígitos contam) e
 /// retorna formato pt-BR com separador de milhar.

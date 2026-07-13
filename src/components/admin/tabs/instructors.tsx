@@ -11,6 +11,8 @@ import {
   useUpdateStaff,
 } from '@/api/admin';
 import { InstructorPhotoUpload } from '@/components/admin/instructor-photo-upload';
+import { PasswordStrength } from '@/components/auth/password-strength';
+import { passwordPolicyIssue } from '@/lib/password-policy';
 import { Btn, Card, PageHead } from '@/components/admin/ui';
 import {
   Drawer,
@@ -441,6 +443,12 @@ function InstructorFormDrawer({
   const [isActive, setIsActive] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Seed the form from the target whenever the drawer opens (or switches
+  // between "new" and a given instructor). This is intentional prop→state
+  // synchronization on open; `set-state-in-effect` is disabled for the block
+  // because the alternative (remounting via `key`) would break the Drawer's
+  // open/close animation.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (!open) return;
     setName(editing?.name ?? '');
@@ -462,15 +470,17 @@ function InstructorFormDrawer({
     updateMut.reset();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, editing?.id, defaultUnitId]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
-  // 15.3 — primary kind must be in the specialty set. Auto-add when missing
-  // so the admin doesn't have to remember to also tick the checkbox.
-  useEffect(() => {
-    if (!primaryKindId) return;
-    setClassKindIds((prev) =>
-      prev.includes(primaryKindId) ? prev : [...prev, primaryKindId],
-    );
-  }, [primaryKindId]);
+  // 15.3 — primary kind must be in the specialty set. Handled at the point
+  // of change (not in an effect) so it stays a direct consequence of the
+  // admin's action: picking a carro-chefe auto-ticks it in the specialties.
+  const selectPrimaryKind = (id: string) => {
+    setPrimaryKindId(id);
+    if (id) {
+      setClassKindIds((prev) => (prev.includes(id) ? prev : [...prev, id]));
+    }
+  };
 
   const isPending = createMut.isPending || updateMut.isPending;
 
@@ -479,10 +489,16 @@ function InstructorFormDrawer({
     setError(null);
     if (!name.trim()) return setError('Nome é obrigatório.');
     if (!editing && !email.trim()) return setError('E-mail é obrigatório.');
-    if (!editing && password.length < 8)
-      return setError('Senha temporária precisa de 8+ caracteres.');
-    if (password && password.length < 8)
-      return setError('Nova senha precisa de 8+ caracteres.');
+    // Gate the temporary password on the same policy the API enforces
+    // (@IsStrongPassword). On create it's required; on edit it's optional
+    // (blank = keep current), so only validate a non-empty value.
+    if (!editing || password) {
+      const pwdIssue = passwordPolicyIssue(password, { email, name });
+      if (pwdIssue)
+        return setError(
+          `${editing ? 'Nova senha' : 'Senha temporária'}: ${pwdIssue}.`,
+        );
+    }
     if (arenaIds.length === 0)
       return setError('Escolha pelo menos uma arena onde o professor leciona.');
     // 15.3 — bio mandatory.
@@ -597,7 +613,7 @@ function InstructorFormDrawer({
           hint={
             editing
               ? 'Deixe em branco para manter a senha atual.'
-              : 'Mín. 8 caracteres. O professor troca no primeiro acesso.'
+              : 'O professor troca no primeiro acesso.'
           }
         >
           <TextInput
@@ -605,10 +621,20 @@ function InstructorFormDrawer({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             placeholder={
-              editing ? 'nova senha (opcional)' : 'mínimo 8 caracteres'
+              editing ? 'nova senha (opcional)' : 'mínimo 10 caracteres'
             }
             autoComplete="new-password"
           />
+          {/* Live requirements — only while typing, so the "opcional" edit
+              case stays clean when left blank. */}
+          {password.length > 0 && (
+            <PasswordStrength
+              password={password}
+              email={email}
+              name={name}
+              className="mt-2"
+            />
+          )}
         </FormField>
 
         <FormField
@@ -672,7 +698,7 @@ function InstructorFormDrawer({
         >
           <Select
             value={primaryKindId}
-            onChange={(e) => setPrimaryKindId(e.target.value)}
+            onChange={(e) => selectPrimaryKind(e.target.value)}
             disabled={kinds.length === 0}
           >
             <option value="">selecionar...</option>

@@ -19,9 +19,9 @@ export function StepFila() {
         <div className="display-tight text-[28px] leading-[1] sm:text-[34px]">
           aula cheia? entra na fila.
         </div>
-        <p className="mt-2 max-w-[340px] text-sm text-ink-2">
-          O sistema te promove <b>sozinho</b> quando vaga abrir. Você não
-          precisa ficar dando F5.
+        <p className="mt-2 max-w-[340px] text-[15px] leading-snug text-ink-2">
+          Se abrir uma vaga, o sistema <b>chama você sozinho</b>, na ordem de
+          chegada. Não precisa ficar atualizando a tela.
         </p>
       </div>
 
@@ -81,9 +81,9 @@ export function StepFila() {
         </div>
       </div>
 
-      <p className="text-center text-[12px] text-ink-2">
-        Quando você sobe, ganha <b>2h de cancelamento livre</b> mesmo que a
-        aula seja em &lt;8h.
+      <p className="max-w-[320px] text-center text-[13px] leading-snug text-ink-2">
+        Quando chega a sua vez, você tem até <b>2 horas antes</b> da aula pra
+        cancelar sem perder o crédito.
       </p>
     </div>
   );

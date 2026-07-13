@@ -13,12 +13,12 @@ export function StepCreditos() {
     <div className="flex w-full flex-col items-center gap-5">
       <div className="text-center">
         <div className="display-tight text-[28px] leading-[1] sm:text-[34px]">
-          créditos têm prazo.
+          seus créditos têm prazo.
         </div>
-        <p className="mt-2 max-w-[340px] text-sm text-ink-2">
-          <b>Pacote</b>: vale 30 a 120 dias (quanto maior o pack, mais tempo).
-          <br />
-          <b>Assinatura</b>: zera no fim do mês — não acumula.
+        <p className="mt-2 max-w-[340px] text-[15px] leading-snug text-ink-2">
+          Comprou um <b>pacote</b>? Ele vale de 30 a 120 dias, quanto maior,
+          mais tempo. É <b>mensalista</b>? Os créditos do mês zeram quando o mês
+          vira; não juntam pro próximo.
         </p>
       </div>
 
@@ -94,9 +94,8 @@ export function StepCreditos() {
         </div>
       </div>
 
-      <p className="text-center text-[12px] text-ink-2">
-        Acompanhe o prazo no seu painel — créditos vencidos não voltam, e
-        o saldo da assinatura zera no fim do ciclo.
+      <p className="max-w-[320px] text-center text-[13px] leading-snug text-ink-2">
+        Você vê o prazo de cada crédito no painel, na aba <b>meu plano</b>.
       </p>
     </div>
   );

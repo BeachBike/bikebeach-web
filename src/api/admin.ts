@@ -539,6 +539,8 @@ export interface AdminFinanceReport {
     } | null;
   };
   revenueBySource: { source: CreditSource; revenueCents: number }[];
+  /// 2026-07 — admin gifts created in the window (zero revenue by design).
+  gifts: { packCount: number; creditCount: number };
   topPacks: {
     classes: number;
     label: string;
@@ -1029,6 +1031,75 @@ export function useDeactivateUnit() {
     onSuccess: () => {
       inv.units();
       inv.publicUnits();
+    },
+  });
+}
+
+// ============================================================================
+// Presentes (admin gifts / cortesias)
+// ============================================================================
+
+export interface AdminUserResult {
+  id: string;
+  name: string;
+  email: string;
+  isActive: boolean;
+}
+
+/// Live admin search of regular users by name/email. Query updates on every
+/// keystroke; `keepPreviousData` avoids flicker between letters. Blank query
+/// short-circuits (backend returns []).
+export function useAdminUserSearch(query: string) {
+  const q = query.trim();
+  return useQuery({
+    queryKey: ['admin', 'user-search', q],
+    enabled: q.length >= 1,
+    queryFn: () =>
+      api
+        .get<AdminUserResult[]>('/users/search', { params: { q } })
+        .then((r) => r.data),
+    placeholderData: (prev) => prev,
+    staleTime: 15_000,
+  });
+}
+
+export interface AdminGrant {
+  id: string;
+  totalCredits: number;
+  remainingCredits: number;
+  note: string | null;
+  expiresAt: string | null;
+  createdAt: string;
+  user: { id: string; name: string; email: string };
+}
+
+export function useAdminGrants(limit = 50) {
+  return useQuery({
+    queryKey: ['admin', 'grants', limit],
+    queryFn: () =>
+      api
+        .get<AdminGrant[]>('/credit-packs/grants', { params: { limit } })
+        .then((r) => r.data),
+    staleTime: 15_000,
+  });
+}
+
+export interface GrantCreditPackPayload {
+  userId: string;
+  credits: number;
+  /// ISO datetime; omit for a never-expiring grant.
+  expiresAt?: string;
+  note?: string;
+}
+
+export function useGrantCreditPack() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (payload: GrantCreditPackPayload) =>
+      api.post('/credit-packs/grant', payload).then((r) => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['admin', 'grants'] });
+      qc.invalidateQueries({ queryKey: ['admin', 'finance'] });
     },
   });
 }

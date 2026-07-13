@@ -23,7 +23,12 @@ import {
   type PublicBike,
   type PublicClassSlot,
 } from '@/api/public';
-import { ConfirmModal, HealthGateBanner } from '@/components/common';
+import { useHealthGateStatus } from '@/api/health-gate';
+import {
+  ConfirmModal,
+  DoubleConsentModal,
+  HealthGateBanner,
+} from '@/components/common';
 import { Intro } from '@/components/reservar/intro';
 import { StepAula, buildWeekDays } from '@/components/reservar/step-aula';
 import { StepBike } from '@/components/reservar/step-bike';
@@ -122,7 +127,14 @@ export function ReservarRoute() {
   const packsQ = useMyCreditPacks();
   const reservationsQ = useMyReservations();
   const myWaitlistsQ = useMyWaitlists();
+  const healthQ = useHealthGateStatus();
   const arena = useArenaStore((s) => s.selectedArenaId);
+
+  // PAR-Q "estou ciente" gate: when the user flagged an active health concern
+  // (any SIM), they must acknowledge before a NEW reservation goes through.
+  // Purely front-side (the backend doesn't block on flags) and per-action.
+  const parqFlagged = healthQ.data?.parq.flagged ?? false;
+  const [parqAckOpen, setParqAckOpen] = useState(false);
 
   const dayStart = `${selectedDay}T00:00:00`;
   const dayEnd = `${selectedDay}T23:59:59.999`;
@@ -420,6 +432,22 @@ export function ReservarRoute() {
   };
 
   const onConfirm = async () => {
+    if (!selectedSlotId || !selectedBikeId) return;
+    // A bike-swap on the same reservation isn't a new attendance, so it
+    // doesn't need the health acknowledgment. Every other path books/attends
+    // a class → gate it when the user's PAR-Q is flagged.
+    const isBikeSwap =
+      isEditMode &&
+      !!editingReservation &&
+      selectedSlotId === editingReservation.classSlotId;
+    if (parqFlagged && !isBikeSwap) {
+      setParqAckOpen(true);
+      return;
+    }
+    await doConfirm();
+  };
+
+  const doConfirm = async () => {
     if (!selectedSlotId || !selectedBikeId) return;
     setConfirmError(null);
 
@@ -796,6 +824,26 @@ export function ReservarRoute() {
         cancelLabel="ficar"
         confirmTone="clay"
         loading={leaveWaitlistMutation.isPending}
+      />
+
+      <DoubleConsentModal
+        open={parqAckOpen}
+        onClose={() => !isSubmitting && setParqAckOpen(false)}
+        onConfirm={() => {
+          setParqAckOpen(false);
+          void doConfirm();
+        }}
+        title="atenção à sua saúde"
+        description={
+          <>
+            No seu PAR-Q você marcou <b>pontos de atenção</b>. A gente
+            recomenda uma <b>avaliação médica</b> antes de pedalar e que você
+            avise a equipe na recepção — a gente cuida de você durante a aula.
+          </>
+        }
+        consentLabel="Estou ciente e assumo a responsabilidade de pedalar hoje."
+        confirmLabel="entendi, reservar"
+        loading={isSubmitting}
       />
 
       <ConfirmModal

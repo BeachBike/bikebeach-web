@@ -362,6 +362,37 @@
   }
 }
 
+/* Step-janela clock — the hand spins continuously (tour-clock-sweep) while
+   these two label keyframes cross-fade at the exact half-cycle, so the words
+   below always match the half of the dial the hand is currently sweeping.
+   Same duration as the hand = perfect sync. */
+@keyframes tour-clock-safe {
+  0%,
+  44% {
+    opacity: 1;
+  }
+  56%,
+  94% {
+    opacity: 0;
+  }
+  100% {
+    opacity: 1;
+  }
+}
+@keyframes tour-clock-danger {
+  0%,
+  44% {
+    opacity: 0;
+  }
+  56%,
+  94% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+  }
+}
+
 /* The flag that swaps between "crédito volta" (safe) and "perde crédito"
    (danger) every half-cycle. Two flags are stacked; their opacities
    alternate so only one is visible at a time. */
@@ -466,6 +497,96 @@
   100% {
     opacity: 1;
     transform: scale(1);
+  }
+}
+
+/* Step-saúde — the padlock body pulses "unlocked" once both consent
+   stamps have landed (second half of the loop), then resets. */
+@keyframes tour-gate-unlock {
+  0%,
+  55% {
+    transform: scale(1);
+  }
+  70% {
+    transform: scale(1.08);
+  }
+  85%,
+  100% {
+    transform: scale(1);
+  }
+}
+/* The shackle "opens" — rotates off its left hinge — after the stamps
+   land, then snaps back closed at the top of the next loop. */
+@keyframes tour-lock-shackle {
+  0%,
+  55% {
+    transform: rotate(0deg);
+  }
+  72%,
+  92% {
+    transform: rotate(38deg) translateX(2px);
+  }
+  100% {
+    transform: rotate(0deg);
+  }
+}
+/* Each consent row drops in with a little stamp bounce, holds, then fades
+   out so the loop can replay. Two rows share this with staggered delays. */
+@keyframes tour-stamp {
+  0% {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.9);
+  }
+  12% {
+    opacity: 1;
+    transform: translateY(0) scale(1.04);
+  }
+  18%,
+  86% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-6px) scale(0.96);
+  }
+}
+
+/* Step-amigos — each code character pops up from below on reveal. */
+@keyframes tour-code-reveal {
+  0% {
+    opacity: 0;
+    transform: translateY(8px) scale(0.7);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+/* Credit chip travels YOU → friend along the dashed rail, pauses at each
+   end, and loops — the transfer / share gesture. Positioned by `left` so
+   it rides the flex rail (0% = over the left avatar edge). */
+@keyframes tour-credit-send {
+  0%,
+  10% {
+    left: 0;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  70% {
+    left: 100%;
+    opacity: 1;
+    transform: translate(-50%, -50%) scale(1);
+  }
+  82%,
+  100% {
+    left: 100%;
+    opacity: 0;
+    transform: translate(-50%, -50%) scale(0.6);
   }
 }
 

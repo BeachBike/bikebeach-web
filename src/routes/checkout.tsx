@@ -290,7 +290,10 @@ export function CheckoutRoute() {
                 packOfferId && (
                 <>
                   {cardError && (
-                    <div className="mb-4 rounded-xl bg-clay-d/10 px-4 py-3 text-sm font-medium text-clay-d">
+                    <div
+                      role="alert"
+                      className="mb-4 rounded-xl bg-clay-d/10 px-4 py-3 text-sm font-medium text-clay-d"
+                    >
                       {cardError}
                     </div>
                   )}
@@ -458,7 +461,10 @@ function PixCTA({
         automaticamente.
       </p>
       {errorMessage && (
-        <div className="rounded-xl bg-clay-d/10 px-4 py-3 text-sm font-medium text-clay-d">
+        <div
+          role="alert"
+          className="rounded-xl bg-clay-d/10 px-4 py-3 text-sm font-medium text-clay-d"
+        >
           {errorMessage}
         </div>
       )}
@@ -503,7 +509,10 @@ function PixExpired({
         um segundo.
       </p>
       {errorMessage && (
-        <div className="rounded-xl bg-clay-d/10 px-4 py-3 text-sm font-medium text-clay-d">
+        <div
+          role="alert"
+          className="rounded-xl bg-clay-d/10 px-4 py-3 text-sm font-medium text-clay-d"
+        >
           {errorMessage}
         </div>
       )}
@@ -573,6 +582,14 @@ function extractApiMessage(err: unknown): string {
       | undefined;
     if (data?.code === 'CPF_REQUIRED') {
       return 'Você precisa cadastrar seu CPF antes de comprar.';
+    }
+    // Asaas down / timeout — nothing was charged; invite a retry. Mirrors
+    // the card-form handling so PIX and card degrade the same way.
+    if (data?.code === 'PAYMENT_PROVIDER_UNAVAILABLE') {
+      return 'O pagamento está fora do ar no momento. Nada foi cobrado — tenta de novo em instantes.';
+    }
+    if (data?.code === 'DUPLICATE_CHARGE') {
+      return 'Já recebemos uma cobrança igual há pouco. Confira "meus pagamentos" antes de tentar de novo.';
     }
     if (Array.isArray(data?.message)) return data!.message!.join(' · ');
     if (typeof data?.message === 'string') return data!.message!;

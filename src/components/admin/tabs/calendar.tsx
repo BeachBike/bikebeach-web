@@ -13,6 +13,7 @@ import {
   useCreateClassSlot,
   useUpdateClassSlot,
 } from '@/api/admin';
+import { useSlotRoster } from '@/api/professor';
 import { Btn, Card, PageHead } from '@/components/admin/ui';
 import {
   Drawer,
@@ -20,6 +21,7 @@ import {
   Select,
   TextInput,
 } from '@/components/admin/drawer';
+import { ParticipantHealthModal } from '@/components/saude/participant-health-modal';
 // `InputNumber` no longer used here — duration + capacity são read-only
 // no drawer (item-10).
 
@@ -704,6 +706,7 @@ function SlotFormDrawer({
           </div>
         </div>
       ) : (
+        <div className="flex flex-col gap-6">
         <form onSubmit={submit} className="flex flex-col gap-4">
           <FormField label="professor">
             <Select
@@ -799,8 +802,93 @@ function SlotFormDrawer({
             </div>
           )}
         </form>
+
+        {editing && <AdminParticipants slot={editing} />}
+        </div>
       )}
     </Drawer>
+  );
+}
+
+// ============================================================================
+// Participantes da aula (admin) — mesma info que o professor vê: lista de
+// alunos com badge de saúde e o PAR-Q completo ao selecionar. Reusa o roster.
+// ============================================================================
+
+function AdminParticipants({ slot }: { slot: AdminClassSlot }) {
+  const rosterQ = useSlotRoster(slot.id);
+  const [selected, setSelected] = useState<{
+    userId: string;
+    name: string;
+  } | null>(null);
+
+  const students = rosterQ.data?.students ?? [];
+
+  return (
+    <div className="border-t border-sand pt-5">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="text-[11px] font-bold uppercase tracking-widest text-clay">
+          participantes
+        </div>
+        <span className="text-[12px] text-ink-2">
+          {rosterQ.data
+            ? `${rosterQ.data.reservedCount}/${slot.capacity}`
+            : ''}
+        </span>
+      </div>
+
+      {rosterQ.isLoading ? (
+        <div className="py-6 text-center text-sm text-ink-2">carregando…</div>
+      ) : students.length === 0 ? (
+        <div className="rounded-xs border border-dashed border-sand bg-cream-2 px-4 py-6 text-center text-sm text-ink-2">
+          Ninguém reservou ainda.
+        </div>
+      ) : (
+        <div className="flex flex-col gap-2">
+          {students.map((al) => (
+            <button
+              key={al.reservationId}
+              type="button"
+              onClick={() =>
+                setSelected({ userId: al.user.id, name: al.user.name })
+              }
+              className="flex items-center gap-3 rounded-[12px] border border-sand bg-cream px-3.5 py-2.5 text-left transition-colors hover:bg-cream-2"
+              style={
+                al.healthFlagged
+                  ? { borderColor: 'var(--color-clay)' }
+                  : undefined
+              }
+            >
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate text-[13px] font-semibold lowercase">
+                    {al.user.name}
+                  </span>
+                  {al.healthFlagged && (
+                    <span
+                      className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cream"
+                      style={{ background: 'var(--color-clay-d)' }}
+                      title="PAR-Q com pontos de atenção"
+                    >
+                      ⚠ saúde
+                    </span>
+                  )}
+                </div>
+                <div className="mt-0.5 text-[11px] text-ink-2">
+                  bike {al.bikeLabel} · <span className="text-clay">ver PAR-Q</span>
+                </div>
+              </div>
+            </button>
+          ))}
+        </div>
+      )}
+
+      <ParticipantHealthModal
+        slotId={slot.id}
+        student={selected}
+        onClose={() => setSelected(null)}
+      />
+    </div>
   );
 }
 

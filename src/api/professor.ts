@@ -22,6 +22,9 @@ export interface RosterStudent {
   bikeLabel: string;
   presencaCount: number;
   isFirstClass: boolean;
+  /// PAR-Q com algum "SIM" — sinaliza atenção de saúde. O detalhe completo
+  /// vem de `useParticipantHealth` ao selecionar o aluno.
+  healthFlagged: boolean;
 }
 
 /// Constant kept in sync with `INSTRUCTOR_NO_SHOW_REASON` on the backend.

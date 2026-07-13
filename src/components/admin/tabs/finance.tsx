@@ -350,6 +350,24 @@ function ResumoView({ report }: { report: AdminFinanceReport }) {
         />
       </div>
 
+      {/* Cortesias / presentes — grátis por definição, então ficam FORA da
+          receita. Mostrado à parte pro admin acompanhar quanto foi dado em
+          sorteios/parcerias no período. */}
+      <div className="flex flex-wrap items-center gap-3 rounded-xs border border-sand bg-cream-2 px-4 py-3 text-[13px]">
+        <span className="rounded-full bg-sun px-2.5 py-1 text-[11px] font-bold uppercase tracking-wide text-ink">
+          grátis
+        </span>
+        <span className="text-ink-2">
+          <b className="text-ink">cortesias</b> no período:{' '}
+          <b className="text-ink">{report.gifts.packCount}</b> presente
+          {report.gifts.packCount === 1 ? '' : 's'} ·{' '}
+          <b className="text-ink">{report.gifts.creditCount}</b> crédito
+          {report.gifts.creditCount === 1 ? '' : 's'} dado
+          {report.gifts.creditCount === 1 ? '' : 's'} de graça — não contam como
+          receita.
+        </span>
+      </div>
+
       <DailyRevenueChart days={report.dailyRevenue} />
 
       <div className="grid gap-3.5 lg:grid-cols-2">

@@ -16,12 +16,55 @@ interface GateField {
 
 export interface ParqField extends GateField {
   latestAnswers: Record<string, unknown> | null;
+  /// True when the latest PAR-Q has any risk-flagged answer. Drives the
+  /// "estou ciente" warning before reserving.
+  flagged: boolean;
+  flaggedKeys: string[];
 }
 
 export interface HealthGateStatus {
   liability: GateField;
   parq: ParqField;
   ok: boolean;
+}
+
+/// Manager (instructor of the class / admin) read-only view of a
+/// participant's PAR-Q + liability. Fetched on demand when a participant is
+/// selected in the roster.
+export interface ParticipantHealth {
+  parq: {
+    version: string | null;
+    acceptedAt: string | null;
+    expiresAt: string | null;
+    valid: boolean;
+    flagged: boolean;
+    flaggedKeys: string[];
+    answers: Record<string, unknown> | null;
+    notes: string | null;
+  };
+  liability: {
+    version: string | null;
+    acceptedAt: string | null;
+    expiresAt: string | null;
+    valid: boolean;
+  };
+}
+
+export function useParticipantHealth(
+  slotId: string | undefined,
+  userId: string | undefined,
+) {
+  return useQuery({
+    queryKey: ['participant-health', slotId, userId],
+    enabled: !!slotId && !!userId,
+    queryFn: () =>
+      api
+        .get<ParticipantHealth>(
+          `/class-slots/${slotId}/participants/${userId}/health`,
+        )
+        .then((r) => r.data),
+    staleTime: 60_000,
+  });
 }
 
 export function useHealthGateStatus() {

@@ -1,5 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import { useMemo, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate } from 'react-router';
 import {
   authApi,
@@ -13,9 +13,13 @@ import {
   PasswordInput,
 } from '@/components/auth/fields';
 import { ContaShell } from '@/components/auth/shell';
+import { PasswordStrength } from '@/components/auth/password-strength';
+import { extractApiError } from '@/lib/api-error';
+import { passwordPolicyIssue } from '@/lib/password-policy';
 import {
   birthToIsoDate,
   digitsOnly,
+  isValidCpf,
   isValidEmail,
   maskBirth,
   maskCpf,
@@ -84,29 +88,30 @@ export function SignupRoute() {
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) =>
     setData((d) => ({ ...d, [key]: value }));
 
-  /// Strength meter — same scoring as the prototype.
-  const pwdScore = useMemo(() => {
-    let s = 0;
-    if (data.pwd.length >= 8) s++;
-    if (/[A-Z]/.test(data.pwd)) s++;
-    if (/[0-9]/.test(data.pwd)) s++;
-    if (/[^A-Za-z0-9]/.test(data.pwd)) s++;
-    return s;
-  }, [data.pwd]);
-
   const validateStep0 = (): boolean => {
     const e: FormErrors = {};
     if (data.nome.trim().length < 2) e.nome = 'como a gente te chama?';
     if (!isValidEmail(data.email)) e.email = 'email inválido';
     if (digitsOnly(data.phone).length < 10) e.phone = 'telefone incompleto';
-    if (data.pwd.length < 8) e.pwd = 'mínimo 8 caracteres';
+    // Gate on the SAME policy the backend enforces (@IsStrongPassword) via
+    // the shared mirror, passing e-mail/nome so the identity rule matches.
+    // A weak password fails here with a specific message instead of a
+    // generic 400.
+    const pwdIssue = passwordPolicyIssue(data.pwd, {
+      email: data.email,
+      name: data.nome,
+    });
+    if (pwdIssue) e.pwd = pwdIssue;
     setErrors(e);
     return Object.keys(e).length === 0;
   };
 
   const validateStep1 = (): boolean => {
     const e: FormErrors = {};
+    // Mirror the backend's @IsCpfValid (Mod-11) so a mistyped-but-11-digit
+    // CPF is caught here, not as an opaque 400.
     if (digitsOnly(data.cpf).length !== 11) e.cpf = 'cpf incompleto';
+    else if (!isValidCpf(data.cpf)) e.cpf = 'cpf inválido — confira os números';
     if (digitsOnly(data.birth).length !== 8) e.birth = 'data inválida';
     if (!data.goal) e.goal = 'escolhe pelo menos um objetivo';
     if (!data.level) e.level = 'escolhe seu nível';
@@ -124,17 +129,12 @@ export function SignupRoute() {
       setTimeout(() => navigate('/dashboard', { replace: true }), 1600);
     },
     onError: (err: unknown) => {
-      const message =
-        err && typeof err === 'object' && 'response' in err
-          ? // eslint-disable-next-line @typescript-eslint/no-explicit-any
-            (err as any).response?.data?.message ?? 'algo deu errado.'
-          : 'algo deu errado.';
       setErrors((e) => ({
         ...e,
-        form:
-          typeof message === 'string'
-            ? message
-            : 'não deu pra criar a conta. tenta de novo em instantes.',
+        form: extractApiError(
+          err,
+          'não deu pra criar a conta. tenta de novo em instantes.',
+        ),
       }));
     },
   });
@@ -263,11 +263,7 @@ export function SignupRoute() {
                 />
               </Field>
             </div>
-            <Field
-              label="crie uma senha"
-              error={errors.pwd}
-              hint="oito caracteres ou mais. mistura número, letra maiúscula e símbolo pra ficar forte."
-            >
+            <Field label="crie uma senha" error={errors.pwd}>
               <PasswordInput
                 autoComplete="new-password"
                 value={data.pwd}
@@ -275,35 +271,12 @@ export function SignupRoute() {
                 error={!!errors.pwd}
               />
             </Field>
-            {data.pwd.length > 0 && (
-              <div className="-mt-1.5 flex items-center gap-1.5">
-                {[0, 1, 2, 3].map((i) => (
-                  <div
-                    key={i}
-                    className="h-[5px] flex-1 rounded-full"
-                    style={{
-                      background:
-                        i < pwdScore
-                          ? pwdScore <= 1
-                            ? 'var(--color-clay-d)'
-                            : pwdScore === 2
-                              ? 'var(--color-sun)'
-                              : 'var(--color-sea)'
-                          : 'var(--color-cream-2)',
-                    }}
-                  />
-                ))}
-                <span className="ml-1 text-[11px] font-semibold text-ink-2">
-                  {pwdScore <= 1
-                    ? 'fraca'
-                    : pwdScore === 2
-                      ? 'ok'
-                      : pwdScore === 3
-                        ? 'boa'
-                        : 'forte'}
-                </span>
-              </div>
-            )}
+            <PasswordStrength
+              password={data.pwd}
+              email={data.email}
+              name={data.nome}
+              className="-mt-1.5"
+            />
 
             <button
               type="button"

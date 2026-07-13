@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useState } from 'react';
+import {
+  cloneElement,
+  isValidElement,
+  useEffect,
+  useId,
+  useMemo,
+  useState,
+  type ReactElement,
+} from 'react';
 import { AxiosError } from 'axios';
 import {
   useCreateCardPack,
@@ -396,7 +404,10 @@ export function CardForm({
 
 
         {errors.top && (
-          <div className="rounded-xl bg-clay-d/10 px-4 py-3 text-sm font-medium text-clay-d">
+          <div
+            role="alert"
+            className="rounded-xl bg-clay-d/10 px-4 py-3 text-sm font-medium text-clay-d"
+          >
             {errors.top}
           </div>
         )}
@@ -404,6 +415,7 @@ export function CardForm({
         <button
           type="submit"
           disabled={submitting}
+          aria-busy={submitting}
           className="mt-2 inline-flex items-center justify-center gap-2 self-start rounded-full bg-clay px-7 py-4 text-base font-semibold text-cream shadow-[0_18px_40px_-16px_rgba(216,93,52,0.6)] transition-transform duration-200 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
         >
           {submitting
@@ -426,14 +438,28 @@ function Field({
   error?: string;
   children: React.ReactNode;
 }) {
+  const errorId = useId();
+  // Wire the input to its error message for screen readers: `aria-invalid`
+  // flags the field, `aria-describedby` makes the error read out when the
+  // field is focused. The error span itself is NOT a `role="alert"` — with
+  // several fields that would fire a barrage; the field association is the
+  // quieter, correct pattern (the form-level error up top carries the alert).
+  const enhanced = isValidElement(children)
+    ? cloneElement(children as ReactElement<Record<string, unknown>>, {
+        'aria-invalid': error ? true : undefined,
+        'aria-describedby': error ? errorId : undefined,
+      })
+    : children;
   return (
     <label className="flex flex-col gap-1.5">
       <span className="text-[12px] font-semibold uppercase tracking-wide text-ink-2">
         {label}
       </span>
-      {children}
+      {enhanced}
       {error ? (
-        <span className="text-[11px] font-semibold text-clay-d">{error}</span>
+        <span id={errorId} className="text-[11px] font-semibold text-clay-d">
+          {error}
+        </span>
       ) : hint ? (
         <span className="text-[11px] text-ink-2 opacity-80">{hint}</span>
       ) : null}

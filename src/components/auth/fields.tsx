@@ -51,7 +51,7 @@ interface PasswordProps extends Omit<AuthInputProps, 'type'> {
 
 /// Password input with show/hide toggle, matching the prototype's pill button.
 export const PasswordInput = forwardRef<HTMLInputElement, PasswordProps>(
-  ({ error, placeholder = 'ao menos 8 caracteres', ...props }, ref) => {
+  ({ error, placeholder = 'ao menos 10 caracteres', ...props }, ref) => {
     const [show, setShow] = useState(false);
     return (
       <div className="relative">

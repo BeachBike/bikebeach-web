@@ -88,11 +88,17 @@ export function PixPayment({ pix, isPaid }: Props) {
           <button
             type="button"
             onClick={copy}
+            aria-label="Copiar código PIX copia-e-cola"
             className="whitespace-nowrap rounded-lg bg-ink px-3.5 py-2 text-xs font-semibold text-cream"
           >
             {copied ? 'copiado ✓' : 'copiar'}
           </button>
         </div>
+        {/* SR announcement for the copy action — the visual "copiado ✓" on the
+            button alone isn't reliably announced. */}
+        <span className="sr-only" role="status" aria-live="polite">
+          {copied ? 'código pix copiado' : ''}
+        </span>
 
         {showManualCopy && (
           // Fallback for browsers without the Clipboard API — a selectable
@@ -111,7 +117,12 @@ export function PixPayment({ pix, isPaid }: Props) {
           </div>
         )}
 
+        {/* Live region: only the COARSE state (waiting / confirmed / expired)
+            is announced. The MM:SS countdown is `aria-hidden` so a screen
+            reader isn't spammed once a second. */}
         <div
+          role="status"
+          aria-live="polite"
           className="mt-4 flex items-center gap-3 rounded-xl px-3.5 py-3 text-cream"
           style={{
             background: isPaid ? 'var(--color-success)' : 'var(--color-ink)',
@@ -119,20 +130,23 @@ export function PixPayment({ pix, isPaid }: Props) {
         >
           {isPaid ? (
             <>
-              <span className="text-xl">✓</span>
-              <span
-                className="display-tight"
-                style={{ fontSize: 18 }}
-              >
+              <span className="text-xl" aria-hidden>
+                ✓
+              </span>
+              <span className="display-tight" style={{ fontSize: 18 }}>
                 pagamento confirmado!
               </span>
             </>
           ) : (
             <>
-              <span className="text-xs font-bold uppercase tracking-wide text-sun">
+              <span
+                className="text-xs font-bold uppercase tracking-wide text-sun"
+                aria-hidden
+              >
                 {expired ? 'expirado' : 'expira em'}
               </span>
               <span
+                aria-hidden
                 className="display-tight"
                 style={{
                   fontSize: 24,
@@ -142,8 +156,16 @@ export function PixPayment({ pix, isPaid }: Props) {
                 {expired ? '00:00' : `${mm}:${ss}`}
               </span>
               <span className="ml-auto flex items-center gap-2 text-[12px] opacity-85">
-                <span className="h-2 w-2 animate-pulse rounded-full bg-sun" />
-                aguardando pagamento…
+                <span
+                  className="h-2 w-2 animate-pulse rounded-full bg-sun"
+                  aria-hidden
+                />
+                <span aria-hidden>aguardando pagamento…</span>
+                <span className="sr-only">
+                  {expired
+                    ? 'código pix expirado, gere um novo'
+                    : 'aguardando confirmação do pagamento'}
+                </span>
               </span>
             </>
           )}

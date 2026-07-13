@@ -26,7 +26,43 @@ export function LiabilityCard({
   onAccept,
 }: Props) {
   const [agreed, setAgreed] = useState(valid);
+  // When already valid, start collapsed as a small summary so the page
+  // shrinks after the user is done (2.2). "atualizar" expands the full
+  // terms again. The parent re-mounts this card on a new acceptedAt, so
+  // re-accepting collapses back automatically.
+  const [editing, setEditing] = useState(false);
   const isExpired = !!acceptedAt && !valid;
+
+  if (valid && !editing) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[20px] border-[1.5px] border-sand bg-cream px-5 py-4">
+        <div className="flex items-center gap-3">
+          <span
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[15px] font-bold text-cream"
+            style={{ background: 'var(--color-success)' }}
+          >
+            ✓
+          </span>
+          <div>
+            <div className="text-[13px] font-bold text-ink">
+              termo de responsabilidade em dia
+            </div>
+            <div className="text-[12px] text-ink-2">
+              aceito em {formatFullDate(acceptedAt!)}
+              {expiresAt && <> · vale até {formatFullDate(expiresAt)}</>}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="rounded-full border-[1.5px] border-sand px-4 py-2 text-[13px] font-semibold text-ink-2 transition-colors hover:bg-cream-2"
+        >
+          ver / atualizar
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="rounded-[20px] border-[1.5px] border-sand bg-cream p-6">

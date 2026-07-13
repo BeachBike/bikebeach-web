@@ -5,6 +5,7 @@ import {
 } from '@/api/admin';
 import type { Me } from '@/api/me';
 import { useSlotRoster } from '@/api/professor';
+import { ParticipantHealthModal } from '@/components/saude/participant-health-modal';
 import { useArenaStore } from '@/stores/arena';
 
 interface AlunosTabProps {
@@ -91,6 +92,10 @@ export function AlunosTab({ me }: AlunosTabProps) {
 function RosterBlock({ slot }: { slot: AdminClassSlot }) {
   const rosterQ = useSlotRoster(slot.id);
   const startsAt = new Date(slot.startsAt);
+  const [selected, setSelected] = useState<{
+    userId: string;
+    name: string;
+  } | null>(null);
 
   return (
     <>
@@ -153,21 +158,43 @@ function RosterBlock({ slot }: { slot: AdminClassSlot }) {
               .toUpperCase();
             const checkedIn = al.status === 'CHECKED_IN';
             return (
-              <div
+              <button
                 key={al.reservationId}
-                className="flex items-center gap-3 rounded-[14px] border border-sand bg-cream px-4 py-3"
+                type="button"
+                onClick={() =>
+                  setSelected({ userId: al.user.id, name: al.user.name })
+                }
+                className="flex items-center gap-3 rounded-[14px] border border-sand bg-cream px-4 py-3 text-left transition-colors hover:bg-cream-2"
+                style={
+                  al.healthFlagged
+                    ? { borderColor: 'var(--color-clay)' }
+                    : undefined
+                }
               >
                 <span className="grid size-10 shrink-0 place-items-center rounded-full bg-cream-2 text-[13px] font-bold text-ink">
                   {initials || '—'}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <div className="truncate text-sm font-semibold lowercase">
-                    {al.user.name}
+                  <div className="flex items-center gap-1.5">
+                    <span className="truncate text-sm font-semibold lowercase">
+                      {al.user.name}
+                    </span>
+                    {al.healthFlagged && (
+                      <span
+                        className="shrink-0 rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-cream"
+                        style={{ background: 'var(--color-clay-d)' }}
+                        title="PAR-Q com pontos de atenção"
+                      >
+                        ⚠ saúde
+                      </span>
+                    )}
                   </div>
                   <div className="mt-0.5 text-[11px] text-ink-2">
                     {al.presencaCount} aulas
                     {checkedIn ? ' · presente ✓' : ''}
                     {al.promotedFromWaitlist ? ' · veio da lista' : ''}
+                    {' · '}
+                    <span className="text-clay">ver PAR-Q</span>
                   </div>
                 </div>
                 <span
@@ -179,7 +206,7 @@ function RosterBlock({ slot }: { slot: AdminClassSlot }) {
                 >
                   {al.isFirstClass ? 'novato' : `bike ${al.bikeLabel}`}
                 </span>
-              </div>
+              </button>
             );
           })}
         </div>
@@ -188,6 +215,12 @@ function RosterBlock({ slot }: { slot: AdminClassSlot }) {
           Nenhum aluno reservado ainda.
         </div>
       )}
+
+      <ParticipantHealthModal
+        slotId={slot.id}
+        student={selected}
+        onClose={() => setSelected(null)}
+      />
     </>
   );
 }

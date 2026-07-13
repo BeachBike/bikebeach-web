@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { useMarkOnboardingSeen } from '@/api/me';
+import { StepAmigos } from './step-amigos';
 import { StepCreditos } from './step-creditos';
 import { StepFila } from './step-fila';
 import { StepJanela8h } from './step-janela-8h';
 import { StepReservarBike } from './step-reservar-bike';
+import { StepSaude } from './step-saude';
 
 interface Props {
   open: boolean;
@@ -15,15 +17,19 @@ interface Props {
 
 const STEPS = [
   { id: 'reservar', Comp: StepReservarBike, cta: 'próximo' },
+  { id: 'saude', Comp: StepSaude, cta: 'próximo' },
   { id: 'janela', Comp: StepJanela8h, cta: 'próximo' },
   { id: 'fila', Comp: StepFila, cta: 'próximo' },
-  { id: 'creditos', Comp: StepCreditos, cta: 'começar a usar →' },
+  { id: 'creditos', Comp: StepCreditos, cta: 'próximo' },
+  { id: 'amigos', Comp: StepAmigos, cta: 'começar a usar →' },
 ] as const;
 
-/// Fullscreen onboarding tour. 4 animated steps that explain the
-/// non-obvious parts of bikebeach: the bike map, the 8h cancel window,
-/// auto-promoted waitlist, and credit expiration. Built mobile-first with
-/// swipe navigation; on desktop the side arrows + keyboard arrows work too.
+/// Fullscreen onboarding tour. 6 animated steps that explain the
+/// non-obvious parts of bikebeach: the bike map, the health gate (PAR-Q +
+/// termo), the 8h cancel window, auto-promoted waitlist, credit expiration,
+/// and the social layer (friend code + credit sharing). Built mobile-first
+/// with swipe navigation; on desktop the side arrows + keyboard arrows work
+/// too.
 ///
 /// State: index 0..3 + a `direction` we feed to the step container so the
 /// in/out slide reads correctly forward vs back. The current step is keyed

@@ -65,7 +65,9 @@ export function SaudeRoute() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[920px] px-6 pb-20 pt-8">
+      <main
+        className={`mx-auto max-w-[920px] px-6 pt-8 ${allOk ? 'pb-40' : 'pb-20'}`}
+      >
         <div className="text-xs font-bold uppercase tracking-widest text-clay">
           saúde & responsabilidade
         </div>
@@ -92,79 +94,85 @@ export function SaudeRoute() {
         )}
 
         {status && (
-          <>
-            {allOk && (
-              <SuccessBanner next={next} onContinue={() => navigate(next)} />
-            )}
+          <div className="mt-8 flex flex-col gap-5">
+            {/* Keyed on acceptedAt so a fresh submission re-mounts the card,
+                collapsing it back to the compact summary (2.2). */}
+            <LiabilityCard
+              key={`liab-${status.liability.acceptedAt ?? 'none'}`}
+              valid={status.liability.valid}
+              acceptedAt={status.liability.acceptedAt}
+              expiresAt={status.liability.expiresAt}
+              isSubmitting={liabilityM.isPending}
+              errorMessage={liabilityError}
+              onAccept={onAcceptLiability}
+            />
 
-            <div className="mt-8 flex flex-col gap-5">
-              <LiabilityCard
-                valid={status.liability.valid}
-                acceptedAt={status.liability.acceptedAt}
-                expiresAt={status.liability.expiresAt}
-                isSubmitting={liabilityM.isPending}
-                errorMessage={liabilityError}
-                onAccept={onAcceptLiability}
-              />
-
-              <ParqForm
-                valid={status.parq.valid}
-                acceptedAt={status.parq.acceptedAt}
-                initialAnswers={status.parq.latestAnswers}
-                isSubmitting={parqM.isPending}
-                errorMessage={parqError}
-                onSubmit={onSubmitParq}
-              />
-            </div>
-          </>
+            <ParqForm
+              key={`parq-${status.parq.acceptedAt ?? 'none'}`}
+              valid={status.parq.valid}
+              acceptedAt={status.parq.acceptedAt}
+              initialAnswers={status.parq.latestAnswers}
+              isSubmitting={parqM.isPending}
+              errorMessage={parqError}
+              onSubmit={onSubmitParq}
+            />
+          </div>
         )}
       </main>
+
+      {/* Sticky success bar — once everything's in order, the CTA to reserve
+          is pinned to the bottom of the screen so it's always reachable with
+          the thumb on mobile, instead of stranded at the top (2.1). */}
+      {allOk && <StickyDoneBar next={next} onContinue={() => navigate(next)} />}
     </div>
   );
 }
 
-function SuccessBanner({
+function StickyDoneBar({
   next,
   onContinue,
 }: {
   next: string;
   onContinue: () => void;
 }) {
+  const goesToReserve = next === '/dashboard';
   return (
     <div
-      className="mt-8 flex flex-wrap items-center justify-between gap-3 rounded-2xl bg-ink px-6 py-4 text-cream"
-      style={{ animation: 'fadein .25s ease both' }}
+      className="fixed inset-x-0 bottom-0 z-50 border-t border-sand bg-cream/95 backdrop-blur-md"
+      style={{ animation: 'fadein .3s cubic-bezier(.2,.7,.2,1) both' }}
     >
-      <div className="flex items-center gap-3">
-        <span
-          className="grid h-9 w-9 place-items-center rounded-full text-[15px] font-bold"
-          style={{ background: 'var(--color-success)' }}
-        >
-          ✓
-        </span>
-        <div>
-          <div className="text-[13px] font-semibold">tudo em dia</div>
-          <div className="text-[12px] opacity-75">
-            você pode reservar bikes normalmente.
+      <div className="mx-auto flex max-w-[920px] flex-wrap items-center justify-between gap-3 px-6 py-3.5 pb-[max(env(safe-area-inset-bottom),14px)]">
+        <div className="flex items-center gap-3">
+          <span
+            className="grid h-10 w-10 shrink-0 place-items-center rounded-full text-[17px] font-bold text-cream"
+            style={{ background: 'var(--color-success)' }}
+          >
+            ✓
+          </span>
+          <div>
+            <div className="text-[15px] font-bold text-ink">tudo certo!</div>
+            <div className="text-[13px] text-ink-2">
+              você já pode reservar sua bike.
+            </div>
           </div>
         </div>
+        {goesToReserve ? (
+          <Link
+            to="/reservar"
+            className="flex-1 rounded-full bg-clay px-6 py-3.5 text-center text-[15px] font-semibold text-cream shadow-[0_14px_32px_-14px_rgba(216,93,52,0.6)] transition-transform duration-200 hover:-translate-y-0.5 sm:flex-none"
+          >
+            reservar minha bike →
+          </Link>
+        ) : (
+          <button
+            type="button"
+            onClick={onContinue}
+            className="flex-1 rounded-full bg-clay px-6 py-3.5 text-center text-[15px] font-semibold text-cream shadow-[0_14px_32px_-14px_rgba(216,93,52,0.6)] transition-transform duration-200 hover:-translate-y-0.5 sm:flex-none"
+          >
+            continuar →
+          </button>
+        )}
       </div>
-      {next !== '/dashboard' ? (
-        <button
-          type="button"
-          onClick={onContinue}
-          className="rounded-full bg-clay px-5 py-3 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5"
-        >
-          continuar →
-        </button>
-      ) : (
-        <Link
-          to="/reservar"
-          className="rounded-full bg-clay px-5 py-3 text-sm font-semibold transition-transform duration-200 hover:-translate-y-0.5"
-        >
-          reservar bike →
-        </Link>
-      )}
     </div>
   );
 }

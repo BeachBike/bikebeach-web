@@ -24,6 +24,7 @@ import { HistoricoSection } from '@/components/dashboard/historico-section';
 import { KPIs } from '@/components/dashboard/kpis';
 import { NextClass } from '@/components/dashboard/next-class';
 import { PagamentosSection } from '@/components/dashboard/pagamentos-section';
+import { PendingPaymentBanner } from '@/components/dashboard/pending-payment-banner';
 import { PlanoCard } from '@/components/dashboard/plano-card';
 import { MyPacksSection } from '@/components/planos/my-packs-section';
 import { Recs } from '@/components/dashboard/recs';
@@ -67,6 +68,10 @@ export function DashboardRoute() {
   const [tourOpen, setTourOpen] = useState(false);
   const [helpOpen, setHelpOpen] = useState(false);
   const [autoTourTriggered, setAutoTourTriggered] = useState(false);
+  // One-shot: auto-open the onboarding tour on the first dashboard load for a
+  // USER who hasn't seen it. `setAutoTourTriggered` is the run-once guard —
+  // an intentional synchronous state write, so the lint rule is disabled here.
+  /* eslint-disable react-hooks/set-state-in-effect */
   useEffect(() => {
     if (
       !autoTourTriggered &&
@@ -81,6 +86,7 @@ export function DashboardRoute() {
       return () => clearTimeout(t);
     }
   }, [meQ.data, autoTourTriggered]);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // Tick that drives time-based re-evaluation of `pickNextReservation`
   // so a class transitions "próxima → ao vivo" without a refresh. 30s
@@ -91,6 +97,15 @@ export function DashboardRoute() {
     const t = setInterval(() => setNowTick(Date.now()), 30_000);
     return () => clearInterval(t);
   }, []);
+
+  // Derived state that uses a hook (`useMemo`) must be computed BEFORE the
+  // early return below — otherwise the hook is called conditionally and React
+  // errors on "rendered fewer hooks than expected" if `session` ever clears.
+  const reservations = reservationsQ.data;
+  const nextReservation = useMemo(
+    () => pickNextReservation(reservations, nowTick),
+    [reservations, nowTick],
+  );
 
   if (!session) return <Navigate to="/login" replace />;
 
@@ -119,18 +134,13 @@ export function DashboardRoute() {
     cancelSubscriptionMutation.mutate(subscriptionId);
   };
 
-  const reservations = reservationsQ.data;
-  const nextReservation = useMemo(
-    () => pickNextReservation(reservations, nowTick),
-    [reservations, nowTick],
-  );
   const userName = meQ.data?.name ?? session.email;
   const userEmail = meQ.data?.email ?? session.email;
 
   // Cancellation window logic — mirrors backend
   // (`STANDARD_CANCELLATION_WINDOW_HOURS` / `WAITLIST_PROTECTED…`).
   const cancelInfo = pendingCancel
-    ? deriveCancelInfo(pendingCancel)
+    ? deriveCancelInfo(pendingCancel, nowTick)
     : null;
 
   return (
@@ -142,6 +152,7 @@ export function DashboardRoute() {
       />
 
       <main className="mx-auto max-w-[1280px] px-6 pb-20">
+        <PendingPaymentBanner />
         <HealthGateBanner next="/dashboard" className="mt-5" />
         {tab === 'inicio' && (
           <>
@@ -324,9 +335,9 @@ interface CancelInfo {
 /// Picks `8h` for standard, `2h` for waitlist-promoted reservations to
 /// match `STANDARD_CANCELLATION_WINDOW_HOURS` /
 /// `WAITLIST_PROTECTED_CANCELLATION_WINDOW_HOURS` on the backend.
-function deriveCancelInfo(r: Reservation): CancelInfo {
+function deriveCancelInfo(r: Reservation, nowMs: number): CancelInfo {
   const startMs = new Date(r.classSlot.startsAt).getTime();
-  const hoursToClass = (startMs - Date.now()) / 3_600_000;
+  const hoursToClass = (startMs - nowMs) / 3_600_000;
   const window = r.promotedFromWaitlist ? 2 : 8;
   const willRefund = hoursToClass >= window;
   const titulo =

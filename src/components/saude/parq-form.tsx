@@ -58,6 +58,10 @@ export function ParqForm({
     seed.responses,
   );
   const [notes, setNotes] = useState(seed.notes);
+  /// When already valid, collapse to a small summary (2.2). "atualizar" opens
+  /// the full questionnaire. Parent re-mounts on a new acceptedAt, so saving
+  /// collapses back automatically.
+  const [editing, setEditing] = useState(false);
   /// 0..TOTAL-1 = pergunta n; TOTAL = revisão
   const [step, setStep] = useState(0);
   /// Bumped on every transition so the question/review block re-mounts and
@@ -91,6 +95,43 @@ export function ParqForm({
   const submit = () => {
     onSubmit({ responses, notes });
   };
+
+  if (valid && !editing) {
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-[20px] border-[1.5px] border-sand bg-cream px-5 py-4">
+        <div className="flex items-center gap-3">
+          <span
+            className="grid h-9 w-9 shrink-0 place-items-center rounded-full text-[15px] font-bold text-cream"
+            style={{ background: 'var(--color-success)' }}
+          >
+            ✓
+          </span>
+          <div>
+            <div className="text-[13px] font-bold text-ink">
+              par-q respondido
+            </div>
+            <div className="text-[12px] text-ink-2">
+              {acceptedAt && <>em {formatFullDate(acceptedAt)}</>}
+              {flagged.length > 0 && (
+                <>
+                  {acceptedAt ? ' · ' : ''}
+                  {flagged.length} ponto{flagged.length === 1 ? '' : 's'} de
+                  atenção
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="rounded-full border-[1.5px] border-sand px-4 py-2 text-[13px] font-semibold text-ink-2 transition-colors hover:bg-cream-2"
+        >
+          atualizar respostas
+        </button>
+      </div>
+    );
+  }
 
   return (
     <section className="overflow-hidden rounded-[20px] border-[1.5px] border-sand bg-cream">
